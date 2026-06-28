@@ -13,6 +13,10 @@ def hello():
 def list_items():
     return render_template('list-item-form.html')
 
+@app.route('/register', methods=['GET'])
+def register():
+    return render_template('register.html')
+
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
     # Capture form data (or handle file upload)
