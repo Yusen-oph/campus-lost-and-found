@@ -17,6 +17,10 @@ def list_items():
 def register():
     return render_template('register.html')
 
+@app.route('/login', methods=['GET'])
+def login():
+    return render_template('login.html')
+
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
     # Capture form data (or handle file upload)

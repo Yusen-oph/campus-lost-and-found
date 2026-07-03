@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-6">
+
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+
+        <!-- Header -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-1">Welcome back</h2>
+        <p class="text-sm text-gray-500 mb-6 border-b pb-4">Sign in to your school's lost-and-found & trading community.</p>
+
+        <!-- Flash message block: replace this div with Flask flash messages when ready -->
+        <div id="flash-error" class="hidden mb-4 flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 4a8 8 0 100 16A8 8 0 0012 4z"/>
+            </svg>
+            <span id="flash-error-text">Invalid email or password. Please try again.</span>
+        </div>
+
+        <form action="/login" method="POST" id="login-form" class="space-y-4" novalidate>
+
+            <!-- Email -->
+            <div>
+                <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">School Email</label>
+                <input type="email" id="email" name="email" required placeholder="you@school.edu" autocomplete="email"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                <p id="email-error" class="mt-1 text-xs text-red-500 hidden">Please enter a valid email address.</p>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                    <a href="/forgot-password" class="text-xs text-blue-600 hover:underline">Forgot password?</a>
+                </div>
+                <div class="relative">
+                    <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition pr-10">
+                    <button type="button" id="toggle-password" tabindex="-1"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition">
+                        <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        <svg id="eye-closed" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7a9.956 9.956 0 012.293-3.95M6.343 6.343A9.956 9.956 0 0112 5c4.477 0 8.268 2.943 9.542 7a9.956 9.956 0 01-1.586 2.914M6.343 6.343L3 3m3.343 3.343l11.314 11.314M17.657 17.657L21 21"/>
+                        </svg>
+                    </button>
+                </div>
+                <p id="password-error" class="mt-1 text-xs text-red-500 hidden">Password cannot be empty.</p>
+            </div>
+
+            <!-- Remember me -->
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="remember_me" name="remember_me"
+                       class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                <label for="remember_me" class="text-sm text-gray-600 cursor-pointer select-none">Remember me for 30 days</label>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition duration-200 cursor-pointer">
+                Sign In
+            </button>
+
+        </form>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-3 my-5">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="text-xs text-gray-400">New here?</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+
+        <!-- Register CTA -->
+        <a href="/register"
+           class="flex items-center justify-center gap-2 w-full border border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 hover:text-blue-700 font-medium py-2.5 px-4 rounded-lg transition duration-200">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3M10 19H5a2 2 0 01-2-2V7a2 2 0 012-2h5m5 0v2"/>
+            </svg>
+            Create a new account
+        </a>
+
+        <p class="text-center text-xs text-gray-400 mt-5">
+            By signing in you agree to our
+            <a href="/terms" class="text-blue-500 hover:underline">Terms of Service</a> and
+            <a href="/privacy" class="text-blue-500 hover:underline">Privacy Policy</a>.
+        </p>
+
+    </div>
+
+    <script>
+        // ── Show/hide password ─────────────────────────────────────────────────
+        const pwdInput  = document.getElementById("password");
+        const eyeOpen   = document.getElementById("eye-open");
+        const eyeClosed = document.getElementById("eye-closed");
+
+        document.getElementById("toggle-password").addEventListener("click", () => {
+            const isHidden = pwdInput.type === "password";
+            pwdInput.type  = isHidden ? "text" : "password";
+            eyeOpen.classList.toggle("hidden", isHidden);
+            eyeClosed.classList.toggle("hidden", !isHidden);
+        });
+
+        // ── Client-side validation ─────────────────────────────────────────────
+        document.getElementById("login-form").addEventListener("submit", function (e) {
+            let valid = true;
+
+            const email    = document.getElementById("email");
+            const emailErr = document.getElementById("email-error");
+            const emailOk  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+            emailErr.classList.toggle("hidden", emailOk);
+            if (!emailOk) { valid = false; email.focus(); }
+
+            const pwd    = document.getElementById("password");
+            const pwdErr = document.getElementById("password-error");
+            const pwdOk  = pwd.value.length > 0;
+            pwdErr.classList.toggle("hidden", pwdOk);
+            if (!pwdOk && valid) { valid = false; pwd.focus(); }
+
+            if (!valid) e.preventDefault();
+        });
+
+        // ── Clear field errors on input ────────────────────────────────────────
+        document.getElementById("email").addEventListener("input", () => {
+            document.getElementById("email-error").classList.add("hidden");
+        });
+        document.getElementById("password").addEventListener("input", () => {
+            document.getElementById("password-error").classList.add("hidden");
+        });
+    </script>
+</body>
+</html>
