@@ -21,6 +21,11 @@ def register():
 def login():
     return render_template('login.html')
 
+# TODO: Implement the POST routes for registration, login, and item submission
+@app.route('/login', methods=['POST'])
+def handle_login():
+    return jsonify({"status": "success", "message": "Account logged in!"})
+
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
     # Capture form data (or handle file upload)
