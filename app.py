@@ -26,6 +26,15 @@ def login():
 def handle_login():
     return jsonify({"status": "success", "message": "Account logged in!"})
 
+@app.route('/items', methods=['GET'])
+def get_items():
+    ITEMS = [
+        {"id": 1, "name": "Blue Water Bottle", "location": "Library, 2nd floor"},
+        {"id": 2, "name": "Black Umbrella", "location": "Main Hall entrance"},
+        {"id": 3, "name": "Calculator (Casio)", "location": "Maths block, Room 4"},
+    ]
+    return jsonify(ITEMS)
+
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
     # Capture form data (or handle file upload)
