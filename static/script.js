@@ -14,13 +14,13 @@ async function loadItems() {
             card.classList.add("item-card");
 
             const title = document.createElement("h3");
-            title.textContent = item.name;
+            title.textContent = item.title;
 
-            const location = document.createElement("p");
-            location.textContent = item.location;
+            const category = document.createElement("p");
+            category.textContent = item.category;
 
             card.appendChild(title);
-            card.appendChild(location);
+            card.appendChild(category);
             containerEl.appendChild(card);
         });
     } catch (error) {

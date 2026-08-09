@@ -1,4 +1,6 @@
 from flask import Flask, jsonify, render_template, request
+
+from db import get_connection
 app = Flask(__name__)
 
 @app.route('/')
@@ -28,22 +30,33 @@ def handle_login():
 
 @app.route('/items', methods=['GET'])
 def get_items():
-    ITEMS = [
-        {"id": 1, "name": "Blue Water Bottle", "location": "Library, 2nd floor"},
-        {"id": 2, "name": "Black Umbrella", "location": "Main Hall entrance"},
-        {"id": 3, "name": "Calculator (Casio)", "location": "Maths block, Room 4"},
-    ]
-    return jsonify(ITEMS)
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, title, description, category, image_url, status FROM items")
+    rows = cursor.fetchall()
+    connection.close()
+
+    items = [dict(row) for row in rows]
+    return jsonify(items)
 
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
-    # Capture form data (or handle file upload)
-    title = request.form.get('item-title')
+    title       = request.form.get('item-title')
     description = request.form.get('description')
-    category = request.form.get('category')
-    image_url = request.form.get('image_url')
+    category    = request.form.get('category')
+    image_url   = request.form.get('image_url')
 
-    return jsonify({"status": "success", "message": "Item received!"})
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute(
+        "INSERT INTO items (title, description, category, image_url) VALUES (?, ?, ?, ?)",
+        (title, description, category, image_url)
+    )
+    connection.commit()
+    new_id = cursor.lastrowid
+    connection.close()
+
+    return jsonify({"status": "success", "id": new_id, "message": "Item posted!"})
 
 if __name__ == '__main__':
  app.run(debug=True)
