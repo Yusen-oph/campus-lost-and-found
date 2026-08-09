@@ -58,5 +58,18 @@ def handle_item_submission():
 
     return jsonify({"status": "success", "id": new_id, "message": "Item posted!"})
 
+@app.route('/items/<int:id>', methods=['GET'])
+def get_item(id):
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM items WHERE id = ?", (id,))
+    item = cursor.fetchone()
+    connection.close()
+
+    if item is None:
+        return "Item not found", 404
+
+    return render_template('item.html', item=dict(item))
+
 if __name__ == '__main__':
  app.run(debug=True)

@@ -10,7 +10,8 @@ async function loadItems() {
 
         containerEl.innerHTML = "";
         items.forEach(item => {
-            const card = document.createElement("div");
+            const card = document.createElement("a");
+            card.href = `/items/${item.id}`;
             card.classList.add("item-card");
 
             const title = document.createElement("h3");
