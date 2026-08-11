@@ -8,6 +8,15 @@
 <body>
     <h1>Lost and Found Items</h1>
     <p id="loading">Loading...</p>
+    <input type="text" id="search" placeholder="Search items...">
+
+<select id="category-filter">
+    <option value="">All categories</option>
+    <option value="lost">Lost</option>
+    <option value="found">Found</option>
+    <option value="trade">Trade</option>
+</select>
+
     <div id="items-container"></div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

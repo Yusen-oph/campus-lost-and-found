@@ -28,16 +28,36 @@ def login():
 def handle_login():
     return jsonify({"status": "success", "message": "Account logged in!"})
 
-@app.route('/items', methods=['GET'])
+@app.route('/api/items', methods=['GET'])
 def get_items():
+    search = request.args.get('search', '').strip()
+    category = request.args.get('category', '').strip()
+
+    query = "SELECT id, title, description, category, image_url, status FROM items"
+    conditions = []
+    params = []
+
+    if search:
+        conditions.append("(title LIKE ? OR description LIKE ?)")
+        params.append(f"%{search}%")
+        params.append(f"%{search}%")
+
+    if category:
+        conditions.append("category = ?")
+        params.append(category)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY id DESC"
+
     connection = get_connection()
     cursor = connection.cursor()
-    cursor.execute("SELECT id, title, description, category, image_url, status FROM items")
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     connection.close()
 
-    items = [dict(row) for row in rows]
-    return jsonify(items)
+    return jsonify([dict(row) for row in rows])
 
 @app.route('/items', methods=['POST'])
 def handle_item_submission():

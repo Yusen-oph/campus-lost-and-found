@@ -1,14 +1,16 @@
 const loadingEl = document.querySelector("#loading");
 const containerEl = document.querySelector("#items-container");
+const searchInput = document.querySelector("#search");
+const categorySelect = document.querySelector("#category-filter");
 
-async function loadItems() {
-    loadingEl.style.display = "block";
+function renderItems(items) {
+    containerEl.innerHTML = "";
 
-    try {
-        const response = await fetch("/items");
-        const items = await response.json();
+    if (items.length === 0) {
+        containerEl.innerHTML = "<p>No items match your search.</p>";
+        return;
+    }
 
-        containerEl.innerHTML = "";
         items.forEach(item => {
             const card = document.createElement("a");
             card.href = `/items/${item.id}`;
@@ -24,6 +26,20 @@ async function loadItems() {
             card.appendChild(category);
             containerEl.appendChild(card);
         });
+}
+
+async function loadItems() {
+    const params = new URLSearchParams();
+    const search = searchInput.value.trim();
+    const category = categorySelect.value;
+    if (search) params.set("search", search);
+    if (category) params.set("category", category);
+
+    loadingEl.style.display = "block";
+    try {
+        const response = await fetch("/api/items?" + params.toString());
+        const items = await response.json();
+        renderItems(items);
     } catch (error) {
         containerEl.innerHTML = "<p>Something went wrong loading items.</p>";
     } finally {
@@ -31,4 +47,6 @@ async function loadItems() {
     }
 }
 
+searchInput.addEventListener("input", loadItems);
+categorySelect.addEventListener("change", loadItems);
 loadItems();
