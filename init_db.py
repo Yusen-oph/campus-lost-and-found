@@ -1,29 +1,35 @@
 import sqlite3
 
-# --- SCHEMA ------------------------------------------------------
-# items: every lost, found, or trade listing on the platform
-#   id          unique row id, auto-assigned
-#   title       short name of the item (required)
-#   description longer detail about the item
-#   category    lost / found / trade (required)
-#   image_url   optional link to a picture
-#   status      available / claimed, defaults to available
-# -----------------------------------------------------------------
+DB_NAME = "lostfound.db"
 
-connection = sqlite3.connect("lostfound.db")
-cursor = connection.cursor()
+def init_db():
+    connection = sqlite3.connect(DB_NAME)
+    cursor = connection.cursor()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    category TEXT NOT NULL,
-    image_url TEXT,
-    status TEXT NOT NULL DEFAULT 'available'
-);
-""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    """)
 
-connection.commit()
-connection.close()
-print("Database initialised.")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        image_url TEXT,
+        status TEXT NOT NULL DEFAULT 'available',
+        posted_by INTEGER REFERENCES users(id)
+    );
+    """)
+
+    connection.commit()
+    connection.close()
+    print("Database initialised.")
+
+if __name__ == "__main__":
+    init_db()

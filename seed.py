@@ -1,4 +1,7 @@
+from multiprocessing import connection
+
 from db import get_connection
+
 
 items = [
     ("Blue Water Bottle", "Metal flask, small dent on the base.", "lost", "https://placehold.co/300x200"),
@@ -8,15 +11,16 @@ items = [
     ("Set of Keys", "Three keys on a red lanyard.", "lost", "https://placehold.co/300x200"),
     ("Wired Earphones", "Found in the library, second floor.", "found", "https://placehold.co/300x200"),
 ]
+def seed():
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.executemany(
+        "INSERT INTO items (title, description, category, image_url) VALUES (?, ?, ?, ?)",
+        items
+    )
+    connection.commit()
+    connection.close()
+    print(f"Inserted {len(items)} items.")
 
-connection = get_connection()
-cursor = connection.cursor()
-
-cursor.executemany(
-    "INSERT INTO items (title, description, category, image_url) VALUES (?, ?, ?, ?)",
-    items,
-)
-
-connection.commit()
-connection.close()
-print(f"Inserted {len(items)} items.")
+if __name__ == "__main__":
+    seed()

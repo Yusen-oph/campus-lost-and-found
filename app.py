@@ -1,7 +1,10 @@
-from flask import Flask, jsonify, render_template, request
-
+from functools import wraps
+from flask import Flask, jsonify, render_template, request, session, redirect
+from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_connection
+
 app = Flask(__name__)
+app.secret_key = "dev-secret-change-me"
 
 @app.route('/')
 def index():
@@ -16,17 +19,71 @@ def list_items():
     return render_template('list-item-form.html')
 
 @app.route('/register', methods=['GET'])
-def register():
+def register_page():
     return render_template('register.html')
 
+@app.route('/api/register', methods=['POST'])
+def register():
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required."}), 400
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    existing = cursor.execute(
+        "SELECT id FROM users WHERE email = ?", (email,)
+    ).fetchone()
+    if existing:
+        connection.close()
+        return jsonify({"error": "That email is already taken."}), 409
+
+    cursor.execute(
+        "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+        (email, generate_password_hash(password, method="pbkdf2:sha256")),
+    )
+    connection.commit()
+    user_id = cursor.lastrowid
+    connection.close()
+
+    session["email"] = email
+    return jsonify({"status": "ok", "email": email})
+
 @app.route('/login', methods=['GET'])
-def login():
+def login_page():
     return render_template('login.html')
 
-# TODO: Implement the POST routes for registration, login, and item submission
-@app.route('/login', methods=['POST'])
-def handle_login():
-    return jsonify({"status": "success", "message": "Account logged in!"})
+@app.route('/api/login', methods=['POST'])
+def login():
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    user = cursor.execute(
+        "SELECT id, email, password_hash FROM users WHERE email = ?",
+        (email,),
+    ).fetchone()
+    connection.close()
+
+    if user is None or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid email or password."}), 401
+
+    session["email"] = user["email"]
+    return jsonify({"status": "ok", "email": user["email"]})
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"status": "ok"})
+
+@app.route('/api/me', methods=['GET'])
+def me():
+    if "user_id" in session:
+        return jsonify({"logged_in": True, "email": session.get("email")})
+    return jsonify({"logged_in": False})
 
 @app.route('/api/items', methods=['GET'])
 def get_items():
