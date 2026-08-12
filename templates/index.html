@@ -6,18 +6,27 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Lost and Found Items</h1>
-    <p id="loading">Loading...</p>
-    <input type="text" id="search" placeholder="Search items...">
+    <header class="page-header">
+        <div class="container">
+            <h1>Lost and Found</h1>
+            <p class="subtitle">Find what you lost. Return what you found.</p>
+        </div>
+    </header>
 
-<select id="category-filter">
-    <option value="">All categories</option>
-    <option value="lost">Lost</option>
-    <option value="found">Found</option>
-    <option value="trade">Trade</option>
-</select>
+    <main class="container">
+        <div class="toolbar">
+            <input type="text" id="search" class="search-input" placeholder="Search items...">
+            <select id="category-filter" class="category-select">
+                <option value="">All categories</option>
+                <option value="lost">Lost</option>
+                <option value="found">Found</option>
+                <option value="trade">Trade</option>
+            </select>
+        </div>
 
-    <div id="items-container"></div>
+        <p id="loading">Loading...</p>
+        <div id="items-container" class="items-grid"></div>
+    </main>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

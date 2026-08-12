@@ -15,11 +15,13 @@ function renderItems(items) {
             const card = document.createElement("a");
             card.href = `/items/${item.id}`;
             card.classList.add("item-card");
+            card.dataset.category = item.category;
 
             const title = document.createElement("h3");
             title.textContent = item.title;
 
-            const category = document.createElement("p");
+            const category = document.createElement("span");
+            category.classList.add("badge");
             category.textContent = item.category;
 
             card.appendChild(title);
@@ -47,6 +49,13 @@ async function loadItems() {
     }
 }
 
-searchInput.addEventListener("input", loadItems);
+let debounceTimer;
+
+function debouncedLoad() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(loadItems, 300);
+}
+
+searchInput.addEventListener("input", debouncedLoad);
 categorySelect.addEventListener("change", loadItems);
 loadItems();
