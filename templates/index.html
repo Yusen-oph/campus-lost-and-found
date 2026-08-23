@@ -2,13 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lost and Found</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+
+    <!-- ── Navbar ── -->
+    <nav class="navbar">
+        <div class="container navbar-inner">
+            <a href="/" class="navbar-brand">📦 Campus L&F</a>
+            <div class="navbar-actions" id="navbar-actions">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Hero header ── -->
     <header class="page-header">
         <div class="container">
-            <h1>Lost and Found</h1>
+            <h1>Lost and Found Items</h1>
             <p class="subtitle">Find what you lost. Return what you found.</p>
         </div>
     </header>
@@ -27,6 +40,9 @@
         <p id="loading">Loading...</p>
         <div id="items-container" class="items-grid"></div>
     </main>
+
+    <!-- Dropdown backdrop -->
+    <div id="dropdown-backdrop" class="dropdown-backdrop hidden"></div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

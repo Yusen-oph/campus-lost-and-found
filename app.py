@@ -24,11 +24,15 @@ def register_page():
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    email = request.form.get('email', '').strip()
-    password = request.form.get('password', '')
+    email       = request.form.get('email', '').strip()
+    password    = request.form.get('password', '')
+    full_name   = request.form.get('full_name', '').strip()
+    role        = request.form.get('role', '').strip()
+    institution = request.form.get('institution', '').strip()
+    user_id     = request.form.get('user_id', '').strip()
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required."}), 400
+    if not email or not password or not full_name or not role:
+        return jsonify({"error": "Please fill in all required fields."}), 400
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -41,14 +45,18 @@ def register():
         return jsonify({"error": "That email is already taken."}), 409
 
     cursor.execute(
-        "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-        (email, generate_password_hash(password, method="pbkdf2:sha256")),
+        """INSERT INTO users (full_name, email, password_hash, role, institution, user_id)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (full_name, email, generate_password_hash(password, method="pbkdf2:sha256"),
+         role, institution, user_id)
     )
     connection.commit()
-    user_id = cursor.lastrowid
+    new_id = cursor.lastrowid
+    session["user_id"] = new_id
+    session["email"]   = email
+    session["full_name"] = full_name
     connection.close()
 
-    session["email"] = email
     return jsonify({"status": "ok", "email": email})
 
 @app.route('/login', methods=['GET'])
@@ -57,21 +65,22 @@ def login_page():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    email = request.form.get('email', '').strip()
+    email    = request.form.get('email', '').strip()
     password = request.form.get('password', '')
 
     connection = get_connection()
     cursor = connection.cursor()
     user = cursor.execute(
-        "SELECT id, email, password_hash FROM users WHERE email = ?",
-        (email,),
+        "SELECT id, full_name, email, password_hash FROM users WHERE email = ?", (email,)
     ).fetchone()
     connection.close()
 
     if user is None or not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "Invalid email or password."}), 401
 
-    session["email"] = user["email"]
+    session["user_id"]   = user["id"]
+    session["email"]     = user["email"]
+    session["full_name"] = user["full_name"]
     return jsonify({"status": "ok", "email": user["email"]})
 
 @app.route('/api/logout', methods=['POST'])
@@ -82,7 +91,12 @@ def logout():
 @app.route('/api/me', methods=['GET'])
 def me():
     if "user_id" in session:
-        return jsonify({"logged_in": True, "email": session.get("email")})
+        return jsonify({
+            "logged_in":  True,
+            "email":      session.get("email"),
+            "full_name":  session.get("full_name"),
+            "user_id":    session.get("user_id")
+        })
     return jsonify({"logged_in": False})
 
 @app.route('/api/items', methods=['GET'])
@@ -90,7 +104,12 @@ def get_items():
     search = request.args.get('search', '').strip()
     category = request.args.get('category', '').strip()
 
-    query = "SELECT id, title, description, category, image_url, status FROM items"
+    query = """
+        SELECT items.id, items.title, items.description, items.category,
+               items.image_url, items.status, users.full_name as posted_by_name
+        FROM items
+        LEFT JOIN users ON items.posted_by = users.id
+    """
     conditions = []
     params = []
 
@@ -106,7 +125,7 @@ def get_items():
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    query += " ORDER BY id DESC"
+    query += " ORDER BY items.id DESC"
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -122,12 +141,13 @@ def handle_item_submission():
     description = request.form.get('description')
     category    = request.form.get('category')
     image_url   = request.form.get('image_url')
+    posted_by   = session.get("user_id")
 
     connection = get_connection()
     cursor = connection.cursor()
     cursor.execute(
-        "INSERT INTO items (title, description, category, image_url) VALUES (?, ?, ?, ?)",
-        (title, description, category, image_url)
+        "INSERT INTO items (title, description, category, image_url, posted_by) VALUES (?, ?, ?, ?, ?)",
+        (title, description, category, image_url, posted_by)
     )
     connection.commit()
     new_id = cursor.lastrowid
@@ -139,7 +159,12 @@ def handle_item_submission():
 def get_item(id):
     connection = get_connection()
     cursor = connection.cursor()
-    cursor.execute("SELECT * FROM items WHERE id = ?", (id,))
+    cursor.execute("""
+        SELECT items.*, users.full_name as posted_by_name
+        FROM items
+        LEFT JOIN users ON items.posted_by = users.id
+        WHERE items.id = ?
+    """, (id,))
     item = cursor.fetchone()
     connection.close()
 

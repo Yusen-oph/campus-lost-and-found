@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-6">
 
@@ -108,7 +109,12 @@
         });
 
         // ── Client-side validation ─────────────────────────────────────────────
-        document.getElementById("login-form").addEventListener("submit", function (e) {
+        const loginForm = document.getElementById("login-form");
+
+        loginForm.addEventListener("submit", function (e) {
+            
+            e.preventDefault();  // Prevent form submission for validation
+
             let valid = true;
 
             const email    = document.getElementById("email");
@@ -123,7 +129,9 @@
             pwdErr.classList.toggle("hidden", pwdOk);
             if (!pwdOk && valid) { valid = false; pwd.focus(); }
 
-            if (!valid) e.preventDefault();
+            if (!valid) return;
+
+            submitAuth("/api/login", loginForm);
         });
 
         // ── Clear field errors on input ────────────────────────────────────────

@@ -1,9 +1,88 @@
-const loadingEl = document.querySelector("#loading");
-const containerEl = document.querySelector("#items-container");
-const searchInput = document.querySelector("#search");
+const loadingEl      = document.querySelector("#loading");
+const containerEl    = document.querySelector("#items-container");
+const searchInput    = document.querySelector("#search");
 const categorySelect = document.querySelector("#category-filter");
 
+// ── Navbar ─────────────────────────────────────────────────────────────────
+async function initNavbar() {
+    const actionsEl = document.getElementById("navbar-actions");
+    if (!actionsEl) return;
+
+    try {
+        const res  = await fetch("/api/me");
+        const data = await res.json();
+
+        if (data.logged_in) {
+            // Get initials for avatar placeholder
+            const initials = data.full_name
+                .split(" ")
+                .map(n => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+            actionsEl.innerHTML = `
+                <a href="/post-item" class="btn-post">+ Post Item</a>
+                <div class="nav-user" id="nav-user">
+                    <button class="avatar-btn" id="avatar-btn" aria-label="User menu">
+                        <div class="avatar">${initials}</div>
+                        <span class="nav-name">${data.full_name}</span>
+                        <svg class="chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="dropdown" id="dropdown">
+                        <div class="dropdown-header">
+                            <p class="dropdown-name">${data.full_name}</p>
+                            <p class="dropdown-email">${data.email}</p>
+                        </div>
+                        <hr class="dropdown-divider">
+                        <button class="dropdown-item signout-btn" id="signout-btn">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                            </svg>
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Toggle dropdown
+            const avatarBtn  = document.getElementById("avatar-btn");
+            const dropdown   = document.getElementById("dropdown");
+            const backdrop   = document.getElementById("dropdown-backdrop");
+
+            avatarBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const open = dropdown.classList.toggle("open");
+                backdrop.classList.toggle("hidden", !open);
+            });
+
+            backdrop.addEventListener("click", () => {
+                dropdown.classList.remove("open");
+                backdrop.classList.add("hidden");
+            });
+
+            // Sign out
+            document.getElementById("signout-btn").addEventListener("click", async () => {
+                await fetch("/api/logout", { method: "POST" });
+                window.location.href = "/";
+            });
+
+        } else {
+            actionsEl.innerHTML = `
+                <a href="/register" class="btn-outline">Sign Up</a>
+                <a href="/login"    class="btn-primary">Log In</a>
+            `;
+        }
+    } catch (e) {
+        console.error("Navbar init failed:", e);
+    }
+}
+
+// ── Items ───────────────────────────────────────────────────────────────────
 function renderItems(items) {
+    if (!containerEl) return;
     containerEl.innerHTML = "";
 
     if (items.length === 0) {
@@ -11,51 +90,59 @@ function renderItems(items) {
         return;
     }
 
-        items.forEach(item => {
-            const card = document.createElement("a");
-            card.href = `/items/${item.id}`;
-            card.classList.add("item-card");
-            card.dataset.category = item.category;
+    items.forEach(item => {
+        const card = document.createElement("a");
+        card.href  = `/items/${item.id}`;
+        card.classList.add("item-card");
+        card.dataset.category = item.category;
 
-            const title = document.createElement("h3");
-            title.textContent = item.title;
+        const title = document.createElement("h3");
+        title.textContent = item.title;
 
-            const category = document.createElement("span");
-            category.classList.add("badge");
-            category.textContent = item.category;
+        const badge = document.createElement("span");
+        badge.classList.add("badge");
+        badge.textContent = item.category;
 
-            card.appendChild(title);
-            card.appendChild(category);
-            containerEl.appendChild(card);
-        });
+        const poster = document.createElement("p");
+        poster.classList.add("card-poster");
+        poster.textContent = item.posted_by_name ? `By ${item.posted_by_name}` : "";
+
+        card.appendChild(title);
+        card.appendChild(badge);
+        if (item.posted_by_name) card.appendChild(poster);
+        containerEl.appendChild(card);
+    });
 }
 
 async function loadItems() {
-    const params = new URLSearchParams();
-    const search = searchInput.value.trim();
-    const category = categorySelect.value;
-    if (search) params.set("search", search);
+    if (!containerEl) return;
+    const params   = new URLSearchParams();
+    const search   = searchInput ? searchInput.value.trim() : "";
+    const category = categorySelect ? categorySelect.value : "";
+    if (search)   params.set("search",   search);
     if (category) params.set("category", category);
 
-    loadingEl.style.display = "block";
+    if (loadingEl) loadingEl.style.display = "block";
     try {
         const response = await fetch("/api/items?" + params.toString());
-        const items = await response.json();
+        const items    = await response.json();
         renderItems(items);
     } catch (error) {
         containerEl.innerHTML = "<p>Something went wrong loading items.</p>";
     } finally {
-        loadingEl.style.display = "none";
+        if (loadingEl) loadingEl.style.display = "none";
     }
 }
 
 let debounceTimer;
-
 function debouncedLoad() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(loadItems, 300);
 }
 
-searchInput.addEventListener("input", debouncedLoad);
-categorySelect.addEventListener("change", loadItems);
-loadItems();
+if (searchInput)    searchInput.addEventListener("input", debouncedLoad);
+if (categorySelect) categorySelect.addEventListener("change", loadItems);
+
+// ── Init ────────────────────────────────────────────────────────────────────
+initNavbar();
+if (containerEl) loadItems();

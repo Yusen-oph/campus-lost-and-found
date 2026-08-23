@@ -8,6 +8,19 @@
 </head>
 <body>
 
+    <!-- ── Navbar ── -->
+    <nav class="navbar">
+        <div class="container navbar-inner">
+            <a href="/" class="navbar-brand">📦 Campus L&F</a>
+            <div class="navbar-actions" id="navbar-actions">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dropdown backdrop -->
+    <div id="dropdown-backdrop" class="dropdown-backdrop hidden"></div>
+
     <div class="container detail-container">
 
         <a href="/" class="back-link">
@@ -54,12 +67,22 @@
                 </p>
 
                 <div class="detail-footer">
-                    <p>Item #{{ item.id }}</p>
+                    <div class="poster-row">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A7 7 0 0112 15a7 7 0 016.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>
+                            Posted by
+                            <strong>{{ item.posted_by_name if item.posted_by_name else "Unknown" }}</strong>
+                        </span>
+                    </div>
+                    <p class="item-id">Item #{{ item.id }}</p>
                 </div>
 
             </div>
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

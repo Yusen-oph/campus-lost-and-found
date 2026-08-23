@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-6">
 
@@ -177,29 +178,36 @@
         });
 
         // ── Form submit guard ──────────────────────────────────────────────────
-        document.getElementById("register-form").addEventListener("submit", function (e) {
+        const registerForm = document.getElementById("register-form");
+
+        registerForm.addEventListener("submit", function (e) {
+            
+            e.preventDefault();
+
             let valid = true;
 
-            const email    = document.getElementById("email");
-            const emailErr = document.getElementById("email-error");
-            const emailOk  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
-            emailErr.classList.toggle("hidden", emailOk);
-            if (!emailOk) { valid = false; email.focus(); }
+            // const email    = document.getElementById("email");
+            // const emailErr = document.getElementById("email-error");
+            // const emailOk  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+            // emailErr.classList.toggle("hidden", emailOk);
+            // if (!emailOk) { valid = false; email.focus(); }
 
-            const role    = document.getElementById("role");
-            const roleErr = document.getElementById("role-error");
-            const roleOk  = role.value !== "";
-            roleErr.classList.toggle("hidden", roleOk);
-            if (!roleOk && valid) { valid = false; role.focus(); }
+            // const role    = document.getElementById("role");
+            // const roleErr = document.getElementById("role-error");
+            // const roleOk  = role.value !== "";
+            // roleErr.classList.toggle("hidden", roleOk);
+            // if (!roleOk && valid) { valid = false; role.focus(); }
 
             const pwd  = document.getElementById("password").value;
             const conf = document.getElementById("confirm_password").value;
             if (pwd !== conf) {
-                valid = false;
+                // valid = false;
                 document.getElementById("password-match-error").classList.remove("hidden");
             }
 
-            if (!valid) e.preventDefault();
+            // if (!valid) return;
+
+            submitAuth("/api/register", registerForm);
         });
     </script>
 </body>
