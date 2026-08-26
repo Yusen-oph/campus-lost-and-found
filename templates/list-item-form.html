@@ -17,18 +17,20 @@
     </a>
         <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">List a New Item</h2>
 
-        <form action="/items" method="POST" id="post-item-form" class="space-y-4">
+        <form action="/items" method="POST" id="list-item-form" class="space-y-4" novalidate>
 
             <div>
                 <label for="title" class="block text-sm font-semibold text-gray-700 mb-1">Title</label>
                 <input type="text" id="title" name="item-title" required
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                <p id="title-error" class="mt-1 text-xs text-red-500 hidden">Please enter a title.</p>
             </div>
 
             <div>
                 <label for="description" class="block text-sm font-semibold text-gray-700 mb-1">Description</label>
                 <textarea id="description" name="description" rows="4" required
                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"></textarea>
+                <p id="description-error" class="mt-1 text-xs text-red-500 hidden">Please enter a description.</p>
             </div>
 
             <div>
@@ -40,6 +42,7 @@
                     <option value="found">Found</option>
                     <option value="trade">Trade</option>
                 </select>
+                <p id="category-error" class="mt-1 text-xs text-red-500 hidden">Please select a category.</p>
             </div>
 
             <div>
@@ -56,5 +59,48 @@
         </form>
     </div>
 
+    <script>
+        const listItemForm = document.getElementById("list-item-form");
+
+        listItemForm.addEventListener("submit", function (e) {
+
+            e.preventDefault();  // Prevent form submission for validation
+
+            let valid = true;
+
+            const title    = document.getElementById("title");
+            const titleErr = document.getElementById("title-error");
+            const titleOk  = title.value.trim().length > 0;
+            titleErr.classList.toggle("hidden", titleOk);
+            if (!titleOk && valid) { valid = false; title.focus(); }
+
+            const description    = document.getElementById("description");
+            const descriptionErr = document.getElementById("description-error");
+            const descriptionOk  = description.value.trim().length > 0;
+            descriptionErr.classList.toggle("hidden", descriptionOk);
+            if (!descriptionOk && valid) { valid = false; description.focus(); }
+
+            const category    = document.getElementById("category");
+            const categoryErr = document.getElementById("category-error");
+            const categoryOk  = category.value.length > 0;
+            categoryErr.classList.toggle("hidden", categoryOk);
+            if (!categoryOk && valid) { valid = false; category.focus(); }
+
+            if (!valid) return;
+
+            listItemForm.submit();
+        });
+
+        // ── Clear field errors on input ────────────────────────────────────────
+        document.getElementById("title").addEventListener("input", () => {
+            document.getElementById("title-error").classList.add("hidden");
+        });
+        document.getElementById("description").addEventListener("input", () => {
+            document.getElementById("description-error").classList.add("hidden");
+        });
+        document.getElementById("category").addEventListener("change", () => {
+            document.getElementById("category-error").classList.add("hidden");
+        });
+    </script>
 </body>
 </html>
