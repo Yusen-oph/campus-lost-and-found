@@ -87,8 +87,16 @@ async function initNavbar() {
 
             // Sign out
             document.getElementById("signout-btn").addEventListener("click", async () => {
-                await fetch("/api/logout", { method: "POST" });
-                window.location.href = "/";
+                try {
+                    const res = await fetch("/api/logout", { method: "POST" });
+                    if (res.ok) {
+                        window.location.href = "/";
+                    } else {
+                        alert("Sign out failed. Please try again.");
+                    }
+                } catch (e) {
+                    alert("Sign out failed. Please try again.");
+                }
             });
 
         } else {
