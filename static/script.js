@@ -3,6 +3,27 @@ const containerEl    = document.querySelector("#items-container");
 const searchInput    = document.querySelector("#search");
 const categorySelect = document.querySelector("#category-filter");
 
+let currentUserId = null;
+
+// ── "Seen" tracking for the current user's own items ────────────────────────
+// An item stays highlighted until the user clicks into it once; the "You"
+// tag itself is derived from posted_by and never goes away.
+function getSeenOwnItems() {
+    try {
+        return JSON.parse(localStorage.getItem("seenOwnItems") || "[]");
+    } catch (e) {
+        return [];
+    }
+}
+
+function markOwnItemSeen(id) {
+    const seen = getSeenOwnItems();
+    if (!seen.includes(id)) {
+        seen.push(id);
+        localStorage.setItem("seenOwnItems", JSON.stringify(seen));
+    }
+}
+
 // ── Navbar ─────────────────────────────────────────────────────────────────
 async function initNavbar() {
     const actionsEl = document.getElementById("navbar-actions");
@@ -13,6 +34,7 @@ async function initNavbar() {
         const data = await res.json();
 
         if (data.logged_in) {
+            currentUserId = data.user_id;
             // Get initials for avatar placeholder
             const initials = data.full_name
                 .split(" ")
@@ -90,11 +112,21 @@ function renderItems(items) {
         return;
     }
 
+    const seenOwnItems = getSeenOwnItems();
+
     items.forEach(item => {
         const card = document.createElement("a");
         card.href  = `/items/${item.id}`;
         card.classList.add("item-card");
         card.dataset.category = item.category;
+
+        const isMine = currentUserId !== null && item.posted_by === currentUserId;
+        if (isMine) {
+            if (!seenOwnItems.includes(item.id)) {
+                card.classList.add("item-card--new");
+            }
+            card.addEventListener("click", () => markOwnItemSeen(item.id));
+        }
 
         const title = document.createElement("h3");
         title.textContent = item.title;
@@ -109,6 +141,12 @@ function renderItems(items) {
 
         card.appendChild(title);
         card.appendChild(badge);
+        if (isMine) {
+            const youBadge = document.createElement("span");
+            youBadge.classList.add("badge-you");
+            youBadge.textContent = "You";
+            card.appendChild(youBadge);
+        }
         if (item.posted_by_name) card.appendChild(poster);
         containerEl.appendChild(card);
     });
@@ -144,5 +182,7 @@ if (searchInput)    searchInput.addEventListener("input", debouncedLoad);
 if (categorySelect) categorySelect.addEventListener("change", loadItems);
 
 // ── Init ────────────────────────────────────────────────────────────────────
-initNavbar();
-if (containerEl) loadItems();
+(async () => {
+    await initNavbar();
+    if (containerEl) loadItems();
+})();

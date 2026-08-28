@@ -1,7 +1,7 @@
 const messageEl = document.querySelector("#message");
 
 
-async function submitAuth(endpoint, form) {
+async function handleFormSubmission(endpoint, form) {
     const response = await fetch(endpoint, {
         method: "POST",
         body: new FormData(form),
@@ -14,6 +14,9 @@ async function submitAuth(endpoint, form) {
             window.location.href = "/login";
         } else if (endpoint === "/api/login") {
             alert("Logged in successfully! Welcome back.");
+            window.location.href = "/";
+        } else if (endpoint === "/items") {
+            alert("Form submitted successfully! ");
             window.location.href = "/";
         }
     } else {

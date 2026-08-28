@@ -151,6 +151,24 @@ body {
     color: var(--color-trade-text);
 }
 
+.badge-you {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: #ffffff;
+}
+
+.item-card--new {
+    border-color: var(--color-primary);
+    background: #eaf2fe;
+    box-shadow: 0 0 0 2px rgba(29, 111, 224, 0.35), var(--shadow);
+}
+
 /* ── Item detail page ────────────────────────────────────────────────────── */
 
 .detail-container {

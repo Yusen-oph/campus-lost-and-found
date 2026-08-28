@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post an Item</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="{{ url_for('static', filename='form_submission.js') }}"></script>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-6">
 
@@ -88,7 +89,7 @@
 
             if (!valid) return;
 
-            listItemForm.submit();
+            handleFormSubmission("/items", listItemForm);
         });
 
         // ── Clear field errors on input ────────────────────────────────────────

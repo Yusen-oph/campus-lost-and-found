@@ -106,7 +106,7 @@ def get_items():
 
     query = """
         SELECT items.id, items.title, items.description, items.category,
-               items.image_url, items.status, users.full_name as posted_by_name
+               items.image_url, items.status, items.posted_by, users.full_name as posted_by_name
         FROM items
         LEFT JOIN users ON items.posted_by = users.id
     """
