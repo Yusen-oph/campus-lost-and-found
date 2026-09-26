@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile_user.full_name }} — Lost & Found</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- ── Navbar ── -->
+    <nav class="navbar">
+        <div class="container navbar-inner">
+            <a href="/" class="navbar-brand">📦 Campus L&F</a>
+            <div class="navbar-actions" id="navbar-actions">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dropdown backdrop -->
+    <div id="dropdown-backdrop" class="dropdown-backdrop hidden"></div>
+
+    <div class="container detail-container">
+
+        <a href="/" class="back-link">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to listings
+        </a>
+
+        <div class="detail-card profile-card">
+            <div class="profile-header">
+                <div class="avatar avatar-large">
+                    {{ profile_user.initials }}
+                </div>
+                <div>
+                    <h1 class="profile-name">{{ profile_user.full_name }}</h1>
+                    {% if is_own_profile or has_contact_access %}
+                    <p class="profile-email">{{ profile_user.email }}</p>
+                    {% else %}
+                    <p class="profile-email profile-email-locked">Email is visible once you've exchanged a claim request with this user.</p>
+                    {% endif %}
+                    <div class="badge-row">
+                        {% if profile_user.role %}
+                        <span class="badge">{{ profile_user.role }}</span>
+                        {% endif %}
+                        {% if profile_user.institution %}
+                        <span class="badge">{{ profile_user.institution }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if profile_user.created_at %}
+            <p class="profile-joined">Member since {{ profile_user.created_at[:10] }}</p>
+            {% endif %}
+        </div>
+
+        <div class="detail-card availability-card">
+            <div class="availability-header">
+                <h2 class="profile-section-heading">Availability</h2>
+                {% if is_own_profile %}
+                <button type="button" class="btn-outline" id="edit-availability-btn">Edit</button>
+                {% endif %}
+            </div>
+
+            {% if is_own_profile or has_contact_access %}
+            <p id="availability-display" class="availability-text{% if not profile_user.availability %} availability-empty{% endif %}">
+                {% if profile_user.availability %}{{ profile_user.availability }}{% else %}{{ "You haven't set your availability yet." if is_own_profile else profile_user.full_name + " hasn't set their availability yet." }}{% endif %}
+            </p>
+            {% else %}
+            <p class="availability-text availability-empty">Availability is visible once you've exchanged a claim request with this user.</p>
+            {% endif %}
+
+            {% if is_own_profile %}
+            <form id="availability-form" class="availability-form hidden" data-user-id="{{ profile_user.id }}">
+                <label for="availability-input" class="availability-label">When and where can people meet you?</label>
+                <textarea id="availability-input" name="availability" rows="3"
+                          placeholder="e.g. Weekdays after 3pm near the Student Union, or by DM to arrange a time.">{{ profile_user.availability or "" }}</textarea>
+                <p id="availability-error" class="field-error hidden">Availability can't be longer than 500 characters.</p>
+                <div class="availability-form-actions">
+                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="button" class="btn-outline" id="cancel-availability-btn">Cancel</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+
+        <h2 class="profile-items-heading">Items posted by {{ profile_user.full_name }}</h2>
+
+        {% if items %}
+        <div class="items-grid">
+            {% for item in items %}
+            <a href="/items/{{ item.id }}" class="item-card" data-category="{{ item.category }}">
+                <h3>{{ item.title }}</h3>
+                <span class="badge">{{ item.category }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p>This user hasn't posted any items yet.</p>
+        {% endif %}
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

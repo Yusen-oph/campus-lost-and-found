@@ -53,10 +53,14 @@
                         <span class="badge badge-trade">Trade</span>
                     {% endif %}
 
-                    {% if item.status == 'available' %}
-                        <span class="badge-status">Available</span>
-                    {% else %}
+                    {% if item.status == 'claimed' %}
                         <span class="badge-status claimed">Claimed</span>
+                    {% elif item.status == 'pending' %}
+                        <span class="badge-status pending">Claim pending</span>
+                    {% elif has_pending_request %}
+                        <span class="badge-status pending">Request pending</span>
+                    {% else %}
+                        <span class="badge-status">Available</span>
                     {% endif %}
                 </div>
 
@@ -73,10 +77,103 @@
                         </svg>
                         <span>
                             Posted by
-                            <strong>{{ item.posted_by_name if item.posted_by_name else "Unknown" }}</strong>
+                            {% if item.posted_by and item.posted_by_name %}
+                            <a href="/users/{{ item.posted_by }}" class="poster-link"><strong>{{ item.posted_by_name }}</strong></a>
+                            {% else %}
+                            <strong>Unknown</strong>
+                            {% endif %}
                         </span>
                     </div>
                     <p class="item-id">Item #{{ item.id }}</p>
+                </div>
+
+                <div class="claim-section" id="claim-section" data-item-id="{{ item.id }}">
+                    {% if item.status == 'claimed' %}
+                        {% if is_owner %}
+                            <h2 class="claim-section-heading">Claim requests</h2>
+                            {% if confirmed_claim %}
+                            <p class="claim-note">
+                                Claimed by
+                                <a href="/users/{{ confirmed_claim.requester_id }}" class="poster-link"><strong>{{ confirmed_claim.requester_name }}</strong></a>
+                            </p>
+                            {% else %}
+                            <p class="claim-note">This item has been claimed.</p>
+                            {% endif %}
+                        {% elif my_claim_status == 'confirmed' %}
+                            <p class="claim-note">You claimed this item.</p>
+                        {% else %}
+                            <p class="claim-note">This item has been claimed.</p>
+                        {% endif %}
+                    {% elif item.status == 'pending' %}
+                        {% if is_owner %}
+                            <h2 class="claim-section-heading">Claim requests</h2>
+                            {% if confirmed_claim %}
+                            <p class="claim-note">
+                                You confirmed
+                                <a href="/users/{{ confirmed_claim.requester_id }}" class="poster-link"><strong>{{ confirmed_claim.requester_name }}</strong></a>
+                                as the claimant. Their email is <strong>{{ confirmed_claim.requester_email }}</strong>{% if confirmed_claim.requester_availability %} and their availability is: {{ confirmed_claim.requester_availability }}{% endif %}.
+                                Please contact them by email to arrange the pick-up, then confirm below once it's done.
+                            </p>
+                            {% endif %}
+                            <button type="button" class="btn-primary confirm-claimed-btn">Confirm claimed</button>
+                            <p class="claim-error field-error hidden"></p>
+                        {% elif my_claim_status == 'confirmed' %}
+                            <p class="claim-note">
+                                You're confirmed as the claimant for this item. Contact
+                                {% if item.posted_by and item.posted_by_name %}<a href="/users/{{ item.posted_by }}" class="poster-link"><strong>{{ item.posted_by_name }}</strong></a>{% else %}the poster{% endif %} at <strong>{{ item.posted_by_email }}</strong>{% if item.posted_by_availability %}, availability: {{ item.posted_by_availability }}{% endif %}.
+                                Please contact them by email to arrange the pick-up.
+                            </p>
+                        {% else %}
+                            <p class="claim-note">This item's claim is being finalized.</p>
+                        {% endif %}
+                    {% elif is_owner %}
+                        <h2 class="claim-section-heading">Claim requests</h2>
+                        {% if claim_requests %}
+                        <ul class="claim-requests-list">
+                            {% for req in claim_requests %}
+                            <li class="claim-request-item{{ ' cancelled' if req.status == 'cancelled' else '' }}" data-request-id="{{ req.id }}">
+                                {% if req.status == 'cancelled' %}
+                                <span>
+                                    <a href="/users/{{ req.requester_id }}" class="poster-link"><strong>{{ req.requester_name }}</strong></a>
+                                    has cancelled the request
+                                </span>
+                                {% else %}
+                                <span>
+                                    <a href="/users/{{ req.requester_id }}" class="poster-link"><strong>{{ req.requester_name }}</strong></a>
+                                    wants to claim this item
+                                </span>
+                                {% if req.proof_details %}
+                                <p class="claim-proof">"{{ req.proof_details }}"</p>
+                                {% endif %}
+                                <button type="button" class="btn-primary claim-confirm-btn">Confirm requester</button>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="claim-note">No claim requests yet.</p>
+                        {% endif %}
+                    {% elif item.posted_by %}
+                        {% if session.user_id %}
+                            {% if my_claim_status == 'pending' %}
+                            <button type="button" class="btn-outline btn-cancel claim-cancel-btn">Cancel request</button>
+                            {% else %}
+                                <label for="claim-proof-input" class="claim-proof-label">Describe details that prove you're the true owner (e.g. color, brand, contents, where/when lost)</label>
+                                <textarea id="claim-proof-input" class="claim-proof-input" rows="3" required
+                                          placeholder="e.g. Black leather wallet with a blue student ID card inside, lost near the library on Tuesday."></textarea>
+                                {% if item.category == 'found' %}
+                                <button type="button" class="btn-primary claim-btn">This is mine — Claim it</button>
+                                {% elif item.category == 'lost' %}
+                                <button type="button" class="btn-primary claim-btn">I found this</button>
+                                {% else %}
+                                <button type="button" class="btn-primary claim-btn">Request this item</button>
+                                {% endif %}
+                            {% endif %}
+                            <p class="claim-error field-error hidden"></p>
+                        {% else %}
+                        <p class="claim-note"><a href="/login">Log in</a> to claim this item.</p>
+                        {% endif %}
+                    {% endif %}
                 </div>
 
             </div>

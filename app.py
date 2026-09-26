@@ -106,7 +106,11 @@ def get_items():
 
     query = """
         SELECT items.id, items.title, items.description, items.category,
-               items.image_url, items.status, items.posted_by, users.full_name as posted_by_name
+               items.image_url, items.status, items.posted_by, users.full_name as posted_by_name,
+               EXISTS(
+                   SELECT 1 FROM claim_requests cr
+                   WHERE cr.item_id = items.id AND cr.status = 'pending'
+               ) AS has_pending_request
         FROM items
         LEFT JOIN users ON items.posted_by = users.id
     """
@@ -125,7 +129,10 @@ def get_items():
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    query += " ORDER BY items.id DESC"
+    query += """ ORDER BY
+        CASE items.status WHEN 'available' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END ASC,
+        items.id DESC
+    """
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -133,7 +140,13 @@ def get_items():
     rows = cursor.fetchall()
     connection.close()
 
-    return jsonify([dict(row) for row in rows])
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["has_pending_request"] = bool(item["has_pending_request"])
+        items.append(item)
+
+    return jsonify(items)
 
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
@@ -160,18 +173,319 @@ def get_item(id):
     connection = get_connection()
     cursor = connection.cursor()
     cursor.execute("""
-        SELECT items.*, users.full_name as posted_by_name
+        SELECT items.*, users.full_name as posted_by_name, users.email as posted_by_email,
+               users.availability as posted_by_availability
         FROM items
         LEFT JOIN users ON items.posted_by = users.id
         WHERE items.id = ?
     """, (id,))
     item = cursor.fetchone()
-    connection.close()
 
     if item is None:
+        connection.close()
         return "Item not found", 404
 
-    return render_template('item.html', item=dict(item))
+    item = dict(item)
+    current_user_id = session.get("user_id")
+    is_owner = current_user_id is not None and current_user_id == item["posted_by"]
+
+    claim_requests = []
+    my_claim_status = None
+    confirmed_claim = None
+
+    cursor.execute(
+        "SELECT 1 FROM claim_requests WHERE item_id = ? AND status = 'pending' LIMIT 1", (id,)
+    )
+    has_pending_request = cursor.fetchone() is not None
+
+    if is_owner:
+        cursor.execute("""
+            SELECT claim_requests.id, claim_requests.status, claim_requests.created_at,
+                   claim_requests.proof_details,
+                   users.id as requester_id, users.full_name as requester_name
+            FROM claim_requests
+            JOIN users ON claim_requests.requested_by = users.id
+            WHERE claim_requests.item_id = ? AND claim_requests.status IN ('pending', 'cancelled')
+            ORDER BY claim_requests.id ASC
+        """, (id,))
+        claim_requests = [dict(row) for row in cursor.fetchall()]
+
+    if item["status"] in ("pending", "claimed"):
+        cursor.execute("""
+            SELECT users.id as requester_id, users.full_name as requester_name,
+                   users.email as requester_email, users.availability as requester_availability
+            FROM claim_requests
+            JOIN users ON claim_requests.requested_by = users.id
+            WHERE claim_requests.item_id = ? AND claim_requests.status = 'confirmed'
+            LIMIT 1
+        """, (id,))
+        row = cursor.fetchone()
+        confirmed_claim = dict(row) if row else None
+
+    if not is_owner and current_user_id is not None:
+        cursor.execute("""
+            SELECT status FROM claim_requests
+            WHERE item_id = ? AND requested_by = ?
+            ORDER BY id DESC LIMIT 1
+        """, (id, current_user_id))
+        row = cursor.fetchone()
+        my_claim_status = row["status"] if row else None
+
+    connection.close()
+
+    return render_template(
+        'item.html',
+        item=item,
+        is_owner=is_owner,
+        claim_requests=claim_requests,
+        my_claim_status=my_claim_status,
+        confirmed_claim=confirmed_claim,
+        has_pending_request=has_pending_request
+    )
+
+@app.route('/api/items/<int:id>/claim', methods=['POST'])
+def create_claim_request(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in to claim an item."}), 401
+
+    proof_details = request.form.get('proof_details', '').strip()
+    if not proof_details:
+        return jsonify({"error": "Please describe details that prove you're the true owner."}), 400
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, status, posted_by FROM items WHERE id = ?", (id,))
+    item = cursor.fetchone()
+
+    if item is None:
+        connection.close()
+        return "Item not found", 404
+
+    if item["posted_by"] == user_id:
+        connection.close()
+        return jsonify({"error": "You can't claim your own item."}), 400
+
+    if item["status"] == "claimed":
+        connection.close()
+        return jsonify({"error": "This item has already been claimed."}), 409
+
+    if item["status"] == "pending":
+        connection.close()
+        return jsonify({"error": "This item's claim is already being finalized."}), 409
+
+    existing = cursor.execute(
+        "SELECT id, status FROM claim_requests WHERE item_id = ? AND requested_by = ? ORDER BY id DESC LIMIT 1",
+        (id, user_id)
+    ).fetchone()
+
+    if existing and existing["status"] == "pending":
+        connection.close()
+        return jsonify({"status": "ok", "claim_status": "pending"})
+
+    cursor.execute(
+        "INSERT INTO claim_requests (item_id, requested_by, status, proof_details) VALUES (?, ?, 'pending', ?)",
+        (id, user_id, proof_details)
+    )
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok", "claim_status": "pending"})
+
+@app.route('/api/items/<int:item_id>/claim-requests/<int:request_id>/confirm', methods=['POST'])
+def confirm_claim_request(item_id, request_id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, posted_by, status FROM items WHERE id = ?", (item_id,))
+    item = cursor.fetchone()
+
+    if item is None:
+        connection.close()
+        return "Item not found", 404
+
+    if item["posted_by"] != user_id:
+        connection.close()
+        return jsonify({"error": "Not authorized."}), 403
+
+    claim_request = cursor.execute(
+        "SELECT id, status FROM claim_requests WHERE id = ? AND item_id = ?",
+        (request_id, item_id)
+    ).fetchone()
+
+    if claim_request is None:
+        connection.close()
+        return jsonify({"error": "Claim request not found."}), 404
+
+    if claim_request["status"] != "pending":
+        connection.close()
+        return jsonify({"error": "This claim request is no longer pending."}), 409
+
+    cursor.execute("UPDATE claim_requests SET status = 'confirmed' WHERE id = ?", (request_id,))
+    cursor.execute(
+        "UPDATE claim_requests SET status = 'declined' WHERE item_id = ? AND id != ? AND status = 'pending'",
+        (item_id, request_id)
+    )
+    cursor.execute("UPDATE items SET status = 'pending' WHERE id = ?", (item_id,))
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/api/items/<int:id>/confirm-claimed', methods=['POST'])
+def confirm_item_claimed(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT id, posted_by, status FROM items WHERE id = ?", (id,))
+    item = cursor.fetchone()
+
+    if item is None:
+        connection.close()
+        return "Item not found", 404
+
+    if item["posted_by"] != user_id:
+        connection.close()
+        return jsonify({"error": "Not authorized."}), 403
+
+    if item["status"] != "pending":
+        connection.close()
+        return jsonify({"error": "This item isn't awaiting a claim confirmation."}), 409
+
+    cursor.execute("UPDATE items SET status = 'claimed' WHERE id = ?", (id,))
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/api/items/<int:id>/claim/cancel', methods=['POST'])
+def cancel_claim_request(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    claim_request = cursor.execute(
+        "SELECT id, status FROM claim_requests WHERE item_id = ? AND requested_by = ? ORDER BY id DESC LIMIT 1",
+        (id, user_id)
+    ).fetchone()
+
+    if claim_request is None or claim_request["status"] != "pending":
+        connection.close()
+        return jsonify({"error": "You don't have a pending request on this item."}), 409
+
+    cursor.execute("UPDATE claim_requests SET status = 'cancelled' WHERE id = ?", (claim_request["id"],))
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route('/users/<int:id>', methods=['GET'])
+def get_user_profile(id):
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute(
+        "SELECT id, full_name, email, role, institution, profile_photo, availability, created_at FROM users WHERE id = ?",
+        (id,)
+    )
+    user = cursor.fetchone()
+
+    if user is None:
+        connection.close()
+        return "User not found", 404
+
+    cursor.execute(
+        "SELECT id, title, category, image_url, status FROM items WHERE posted_by = ? ORDER BY id DESC",
+        (id,)
+    )
+    items = cursor.fetchall()
+
+    current_user_id = session.get("user_id")
+    is_own_profile = current_user_id == id
+
+    has_contact_access = is_own_profile
+    if not has_contact_access and current_user_id is not None:
+        cursor.execute("""
+            SELECT 1 FROM claim_requests
+            JOIN items ON claim_requests.item_id = items.id
+            WHERE (items.posted_by = ? AND claim_requests.requested_by = ?)
+               OR (items.posted_by = ? AND claim_requests.requested_by = ?)
+            LIMIT 1
+        """, (id, current_user_id, current_user_id, id))
+        has_contact_access = cursor.fetchone() is not None
+
+    connection.close()
+
+    profile_user = dict(user)
+    initials = "".join(part[0] for part in profile_user["full_name"].split() if part).upper()[:2]
+    profile_user["initials"] = initials
+
+    return render_template(
+        'profile.html',
+        profile_user=profile_user,
+        items=[dict(row) for row in items],
+        is_own_profile=is_own_profile,
+        has_contact_access=has_contact_access
+    )
+
+@app.route('/api/users/<int:id>/availability', methods=['POST'])
+def update_availability(id):
+    if session.get("user_id") != id:
+        return jsonify({"error": "Not authorized."}), 403
+
+    availability = request.form.get('availability', '').strip()
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("UPDATE users SET availability = ? WHERE id = ?", (availability, id))
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok", "availability": availability})
+
+@app.route('/api/notifications', methods=['GET'])
+def get_notifications():
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"incoming": [], "outgoing": []})
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT claim_requests.id, claim_requests.item_id, items.title AS item_title,
+               users.full_name AS requester_name, claim_requests.status, claim_requests.created_at
+        FROM claim_requests
+        JOIN items ON claim_requests.item_id = items.id
+        JOIN users ON claim_requests.requested_by = users.id
+        WHERE items.posted_by = ? AND claim_requests.status IN ('pending', 'cancelled')
+        ORDER BY claim_requests.id DESC
+        LIMIT 20
+    """, (user_id,))
+    incoming = [dict(row) for row in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT claim_requests.id, claim_requests.item_id, items.title AS item_title,
+               claim_requests.status, claim_requests.created_at
+        FROM claim_requests
+        JOIN items ON claim_requests.item_id = items.id
+        WHERE claim_requests.requested_by = ?
+        ORDER BY claim_requests.id DESC
+        LIMIT 20
+    """, (user_id,))
+    outgoing = [dict(row) for row in cursor.fetchall()]
+
+    connection.close()
+
+    return jsonify({"incoming": incoming, "outgoing": outgoing})
 
 if __name__ == '__main__':
  app.run(debug=True)
