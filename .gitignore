@@ -222,3 +222,6 @@ lostfound.db
 
 # User-uploaded item photos
 static/uploads/
+
+# Claude Code project instructions (local only)
+CLAUDE.md
