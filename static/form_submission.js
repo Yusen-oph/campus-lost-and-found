@@ -20,7 +20,12 @@ async function handleFormSubmission(endpoint, form) {
             window.location.href = "/";
         }
     } else {
-        messageEl.textContent = data.error || "Something went wrong.";
+        const error = data.error || "Something went wrong.";
+        if (messageEl) {
+            messageEl.textContent = error;
+        } else {
+            alert(error);
+        }
     }
 }
 

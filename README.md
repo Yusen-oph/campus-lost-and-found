@@ -2,6 +2,16 @@
 
 A school-based lost-and-found and second-hand trading platform built with Python Flask.
 
+## Setup
+
+```bash
+pip install -r requirements.txt
+python reset_db.py   # creates lostfound.db and seeds sample items
+python app.py
+```
+
+Set the `SECRET_KEY` environment variable to a long random value in any non-development environment; the hardcoded fallback is for local development only.
+
 ## Item & Claim Status Lifecycle
 
 Each item moves through three statuses, and each claim request (a user asking to claim an item) moves through its own set of statuses independently.

@@ -1,18 +1,15 @@
+import os
 from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_connection
 
 app = Flask(__name__)
-app.secret_key = "dev-secret-change-me"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/api/hello')
-def hello():
- return jsonify({'message': 'Hello from Flask!'})
 
 @app.route('/post-item', methods=['GET'])
 def list_items():
@@ -150,11 +147,19 @@ def get_items():
 
 @app.route('/items', methods=['POST'])
 def handle_item_submission():
-    title       = request.form.get('item-title')
-    description = request.form.get('description')
-    category    = request.form.get('category')
-    image_url   = request.form.get('image_url')
-    posted_by   = session.get("user_id")
+    posted_by = session.get("user_id")
+    if posted_by is None:
+        return jsonify({"error": "Please log in to post an item."}), 401
+
+    title       = request.form.get('item-title', '').strip()
+    description = request.form.get('description', '').strip()
+    category    = request.form.get('category', '').strip()
+    image_url   = request.form.get('image_url', '').strip() or None
+
+    if not title or not description:
+        return jsonify({"error": "Title and description are required."}), 400
+    if category not in ('lost', 'found', 'trade'):
+        return jsonify({"error": "Please select a valid category."}), 400
 
     connection = get_connection()
     cursor = connection.cursor()

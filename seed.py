@@ -1,5 +1,3 @@
-from multiprocessing import connection
-
 from db import get_connection
 
 
