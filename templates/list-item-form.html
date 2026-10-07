@@ -49,9 +49,18 @@
             </div>
 
             <div>
-                <label for="image_url" class="block text-sm font-semibold text-gray-700 mb-1">Image URL (to be changed)</label>
-                <input type="url" id="image_url" name="image_url" placeholder="https://example.com/image.jpg"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                <label for="image" class="block text-sm font-semibold text-gray-700 mb-1">Photo <span class="font-normal text-gray-400">(optional)</span></label>
+                <input type="file" id="image" name="image" accept="image/png, image/jpeg, image/gif, image/webp"
+                       class="w-full text-sm text-gray-600 border border-gray-300 rounded-lg cursor-pointer file:mr-3 file:py-2 file:px-4 file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100">
+                <p class="mt-1 text-xs text-gray-400">PNG, JPG, GIF or WEBP, up to 5 MB.</p>
+                <p id="image-error" class="mt-1 text-xs text-red-500 hidden"></p>
+                <div id="image-preview-wrap" class="mt-3 hidden relative">
+                    <img id="image-preview" alt="Selected photo preview" class="w-full max-h-64 object-contain rounded-lg border border-gray-200 bg-gray-50">
+                    <button type="button" id="image-remove"
+                            class="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-600 text-xs font-medium px-2 py-1 rounded shadow cursor-pointer">
+                        Remove
+                    </button>
+                </div>
             </div>
 
             <button type="submit"
@@ -89,6 +98,9 @@
             categoryErr.classList.toggle("hidden", categoryOk);
             if (!categoryOk && valid) { valid = false; category.focus(); }
 
+            const imageOk = validateImage();
+            if (!imageOk && valid) { valid = false; imageInput.focus(); }
+
             if (!valid) return;
 
             handleFormSubmission("/items", listItemForm);
@@ -104,6 +116,49 @@
         document.getElementById("category").addEventListener("change", () => {
             document.getElementById("category-error").classList.add("hidden");
         });
+
+        // ── Image picker with preview ──────────────────────────────────────────
+        const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+        const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+        const imageInput       = document.getElementById("image");
+        const imageErr         = document.getElementById("image-error");
+        const imagePreviewWrap = document.getElementById("image-preview-wrap");
+        const imagePreview     = document.getElementById("image-preview");
+
+        function validateImage() {
+            const file = imageInput.files[0];
+            let error = "";
+            if (file && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                error = "Please choose a PNG, JPG, GIF or WEBP image.";
+            } else if (file && file.size > MAX_IMAGE_BYTES) {
+                error = "Image is too large. Maximum size is 5 MB.";
+            }
+            imageErr.textContent = error;
+            imageErr.classList.toggle("hidden", !error);
+            return !error;
+        }
+
+        function clearImage() {
+            imageInput.value = "";
+            if (imagePreview.src) URL.revokeObjectURL(imagePreview.src);
+            imagePreview.removeAttribute("src");
+            imagePreviewWrap.classList.add("hidden");
+            imageErr.classList.add("hidden");
+        }
+
+        imageInput.addEventListener("change", () => {
+            const file = imageInput.files[0];
+            if (imagePreview.src) URL.revokeObjectURL(imagePreview.src);
+            if (!file || !validateImage()) {
+                imagePreview.removeAttribute("src");
+                imagePreviewWrap.classList.add("hidden");
+                return;
+            }
+            imagePreview.src = URL.createObjectURL(file);
+            imagePreviewWrap.classList.remove("hidden");
+        });
+
+        document.getElementById("image-remove").addEventListener("click", clearImage);
     </script>
 </body>
 </html>

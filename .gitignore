@@ -219,3 +219,6 @@ __marimo__/
 
 # Local SQLite database (recreate with: python reset_db.py)
 lostfound.db
+
+# User-uploaded item photos
+static/uploads/

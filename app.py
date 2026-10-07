@@ -1,4 +1,5 @@
 import os
+import uuid
 from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,6 +7,24 @@ from db import get_connection
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB per request
+
+@app.errorhandler(413)
+def file_too_large(e):
+    return jsonify({"error": "Image is too large. Maximum size is 5 MB."}), 413
+
+def save_uploaded_image(file):
+    """Save an uploaded image and return its public URL, or None if the file isn't an allowed image."""
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_IMAGE_EXTENSIONS or not (file.mimetype or "").startswith("image/"):
+        return None
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(UPLOAD_FOLDER, filename))
+    return f"/static/uploads/{filename}"
 
 @app.route('/')
 def index():
@@ -154,12 +173,18 @@ def handle_item_submission():
     title       = request.form.get('item-title', '').strip()
     description = request.form.get('description', '').strip()
     category    = request.form.get('category', '').strip()
-    image_url   = request.form.get('image_url', '').strip() or None
+    image_file  = request.files.get('image')
 
     if not title or not description:
         return jsonify({"error": "Title and description are required."}), 400
     if category not in ('lost', 'found', 'trade'):
         return jsonify({"error": "Please select a valid category."}), 400
+
+    image_url = None
+    if image_file and image_file.filename:
+        image_url = save_uploaded_image(image_file)
+        if image_url is None:
+            return jsonify({"error": "Please upload a PNG, JPG, GIF or WEBP image."}), 400
 
     connection = get_connection()
     cursor = connection.cursor()
