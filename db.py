@@ -1,6 +1,9 @@
+import os
 import sqlite3
 
-DB_NAME = "lostfound.db"
+# Always the lostfound.db next to this file, whichever folder the app is started from
+# (on PythonAnywhere the app doesn't start in the project folder).
+DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lostfound.db")
 
 def get_connection():
     connection = sqlite3.connect(DB_NAME)

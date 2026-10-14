@@ -9,7 +9,24 @@ from db import get_connection
 from init_db import create_dismissed_notifications_table
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+
+# `python app.py` = development on your own computer. Anywhere else (e.g.
+# PythonAnywhere, which imports this file instead) counts as running online.
+IS_DEV = __name__ == "__main__"
+
+# The secret key signs login cookies. The fallback is public on GitHub, so it's
+# only allowed in development; online the app refuses to start without a real key.
+app.secret_key = os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    if not IS_DEV:
+        raise RuntimeError("SECRET_KEY is not set. Set it before running the app online.")
+    app.secret_key = "dev-secret-change-me"
+
+# Basic protection against other websites submitting forms as a logged-in user:
+# don't send the login cookie with requests that start on another site, and
+# online (which uses HTTPS) only send it over HTTPS.
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = not IS_DEV
 # How long "Remember me" keeps someone logged in
 app.permanent_session_lifetime = timedelta(days=30)
 

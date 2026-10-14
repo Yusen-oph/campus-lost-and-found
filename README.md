@@ -14,6 +14,26 @@ Set the `SECRET_KEY` environment variable to a long random value in any non-deve
 
 Uploaded photos (item photos and profile photos) are saved in `static/uploads/`, which is not tracked by Git.
 
+`python app.py` runs the app in development mode. When the app is started any other way (for example by a web host importing `app.py`), it counts as running online: it refuses to start unless `SECRET_KEY` is set, and the login cookie is only sent over HTTPS.
+
+## Running it on PythonAnywhere
+
+1. In a PythonAnywhere **Bash console**: `git clone https://github.com/Yusen-oph/campus-lost-and-found.git`, then `cd campus-lost-and-found`, `pip install --user -r requirements.txt` and `python init_db.py` (creates an empty database).
+2. On the **Web** tab: *Add a new web app* → *Manual configuration* → the same Python version as the console. Set *Source code* to `/home/<username>/campus-lost-and-found`.
+3. Edit the **WSGI configuration file** linked on the Web tab so it contains:
+   ```python
+   import os, sys
+   os.environ["SECRET_KEY"] = "<a long random value>"
+   project = "/home/<username>/campus-lost-and-found"
+   if project not in sys.path:
+       sys.path.insert(0, project)
+   from app import app as application
+   ```
+4. Under **Static files**, map URL `/static/` to `/home/<username>/campus-lost-and-found/static`.
+5. Turn on **Force HTTPS**, then click **Reload**.
+
+To update the site later: `git pull` in the console, then **Reload** on the Web tab.
+
 ## Features
 
 - **Accounts:** sign up (password of at least 8 characters, optional profile photo) and log in. "Remember me" keeps you logged in for 30 days; otherwise you're logged out when the browser closes.

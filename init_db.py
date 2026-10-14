@@ -1,6 +1,5 @@
 import sqlite3
-
-DB_NAME = "lostfound.db"
+from db import DB_NAME
 
 def create_dismissed_notifications_table(cursor):
     # notif_id looks like "incoming-5-pending": direction, claim request id, status.
