@@ -225,3 +225,6 @@ static/uploads/
 
 # Claude Code project instructions (local only)
 CLAUDE.md
+
+# Database backups
+lostfound-backup-*.db

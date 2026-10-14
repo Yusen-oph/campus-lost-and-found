@@ -329,7 +329,12 @@ function renderItems(items) {
     containerEl.innerHTML = "";
 
     if (items.length === 0) {
-        containerEl.innerHTML = "<p>No items match your search.</p>";
+        // Only blame the search when the user actually searched or filtered
+        const isFiltering = (searchInput && searchInput.value.trim() !== "") ||
+                            (categorySelect && categorySelect.value !== "");
+        containerEl.innerHTML = isFiltering
+            ? "<p>No items match your search.</p>"
+            : "<p>No items have been posted yet.</p>";
         return;
     }
 
