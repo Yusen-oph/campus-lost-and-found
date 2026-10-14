@@ -33,7 +33,9 @@
         <div class="detail-card">
 
             {% if item.image_url %}
-            <img src="{{ item.image_url }}" alt="{{ item.title }}" class="detail-image">
+            <button type="button" id="detail-image-btn" class="detail-image-btn" aria-label="Enlarge image">
+                <img src="{{ item.image_url }}" alt="{{ item.title }}" class="detail-image">
+            </button>
             {% else %}
             <div class="detail-image-placeholder">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,6 +182,41 @@
         </div>
     </div>
 
+    {% if item.image_url %}
+    <!-- Image lightbox -->
+    <div id="image-lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="Enlarged image">
+        <button type="button" id="lightbox-close" class="lightbox-close" aria-label="Close">&times;</button>
+        <img src="{{ item.image_url }}" alt="{{ item.title }}" class="lightbox-image">
+    </div>
+    {% endif %}
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        (function () {
+            const trigger  = document.getElementById("detail-image-btn");
+            const lightbox = document.getElementById("image-lightbox");
+            if (!trigger || !lightbox) return;
+            const closeBtn = document.getElementById("lightbox-close");
+
+            function open() {
+                lightbox.classList.remove("hidden");
+                document.body.style.overflow = "hidden";
+                closeBtn.focus();
+            }
+            function close() {
+                lightbox.classList.add("hidden");
+                document.body.style.overflow = "";
+                trigger.focus();
+            }
+
+            trigger.addEventListener("click", open);
+            closeBtn.addEventListener("click", close);
+            // Clicking the dark backdrop (not the image itself) closes it
+            lightbox.addEventListener("click", (e) => { if (e.target === lightbox) close(); });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && !lightbox.classList.contains("hidden")) close();
+            });
+        })();
+    </script>
 </body>
 </html>
