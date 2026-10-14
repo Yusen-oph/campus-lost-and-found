@@ -10,8 +10,8 @@ async function handleFormSubmission(endpoint, form) {
 
     if (response.ok) {
         if (endpoint === "/api/register") {
-            alert("Account created successfully! Please sign in to continue.");
-            window.location.href = "/login";
+            alert("Account created! Welcome.");
+            window.location.href = "/";  // the server has already logged them in
         } else if (endpoint === "/api/login") {
             alert("Logged in successfully! Welcome back.");
             window.location.href = "/";

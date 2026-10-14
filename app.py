@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+from datetime import timedelta
 from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,6 +10,11 @@ from init_db import create_dismissed_notifications_table
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+# How long "Remember me" keeps someone logged in
+app.permanent_session_lifetime = timedelta(days=30)
+
+MIN_PASSWORD_LENGTH = 8
+MAX_AVAILABILITY_LENGTH = 500
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
@@ -76,6 +82,10 @@ def register():
 
     if not email or not password or not full_name or not role:
         return jsonify({"error": "Please fill in all required fields."}), 400
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"error": f"Password must be at least {MIN_PASSWORD_LENGTH} characters."}), 400
+    if password != request.form.get('confirm_password', ''):
+        return jsonify({"error": "Passwords don't match."}), 400
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -87,11 +97,20 @@ def register():
         connection.close()
         return jsonify({"error": "That email is already taken."}), 409
 
+    # Optional profile photo, saved only once everything else is valid
+    profile_photo = None
+    photo_file = request.files.get('profile_photo')
+    if photo_file and photo_file.filename:
+        profile_photo = save_uploaded_image(photo_file)
+        if profile_photo is None:
+            connection.close()
+            return jsonify({"error": "Please upload a PNG, JPG, GIF or WEBP image."}), 400
+
     cursor.execute(
-        """INSERT INTO users (full_name, email, password_hash, role, institution, user_id)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO users (full_name, email, password_hash, role, institution, user_id, profile_photo)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (full_name, email, generate_password_hash(password, method="pbkdf2:sha256"),
-         role, institution, user_id)
+         role, institution, user_id, profile_photo)
     )
     connection.commit()
     new_id = cursor.lastrowid
@@ -124,6 +143,8 @@ def login():
     session["user_id"]   = user["id"]
     session["email"]     = user["email"]
     session["full_name"] = user["full_name"]
+    # Ticked: keep the login for 30 days. Unticked: it ends when the browser closes.
+    session.permanent = request.form.get('remember_me') == 'on'
     return jsonify({"status": "ok", "email": user["email"]})
 
 @app.route('/api/logout', methods=['POST'])
@@ -134,11 +155,17 @@ def logout():
 @app.route('/api/me', methods=['GET'])
 def me():
     if "user_id" in session:
+        connection = get_connection()
+        row = connection.execute(
+            "SELECT profile_photo FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+        connection.close()
         return jsonify({
-            "logged_in":  True,
-            "email":      session.get("email"),
-            "full_name":  session.get("full_name"),
-            "user_id":    session.get("user_id")
+            "logged_in":     True,
+            "email":         session.get("email"),
+            "full_name":     session.get("full_name"),
+            "user_id":       session.get("user_id"),
+            "profile_photo": row["profile_photo"] if row else None
         })
     return jsonify({"logged_in": False})
 
@@ -663,6 +690,8 @@ def update_availability(id):
         return jsonify({"error": "Not authorized."}), 403
 
     availability = request.form.get('availability', '').strip()
+    if len(availability) > MAX_AVAILABILITY_LENGTH:
+        return jsonify({"error": f"Availability can't be longer than {MAX_AVAILABILITY_LENGTH} characters."}), 400
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -671,6 +700,41 @@ def update_availability(id):
     connection.close()
 
     return jsonify({"status": "ok", "availability": availability})
+
+@app.route('/api/users/<int:id>/photo', methods=['POST'])
+def update_profile_photo(id):
+    if session.get("user_id") != id:
+        return jsonify({"error": "Not authorized."}), 403
+
+    photo_file = request.files.get('profile_photo')
+    if not photo_file or not photo_file.filename:
+        return jsonify({"error": "Please choose a photo."}), 400
+    new_photo = save_uploaded_image(photo_file)
+    if new_photo is None:
+        return jsonify({"error": "Please upload a PNG, JPG, GIF or WEBP image."}), 400
+
+    connection = get_connection()
+    old_photo = connection.execute("SELECT profile_photo FROM users WHERE id = ?", (id,)).fetchone()["profile_photo"]
+    connection.execute("UPDATE users SET profile_photo = ? WHERE id = ?", (new_photo, id))
+    connection.commit()
+    connection.close()
+
+    delete_uploaded_image(old_photo)
+    return jsonify({"status": "ok", "profile_photo": new_photo})
+
+@app.route('/api/users/<int:id>/photo/delete', methods=['POST'])
+def remove_profile_photo(id):
+    if session.get("user_id") != id:
+        return jsonify({"error": "Not authorized."}), 403
+
+    connection = get_connection()
+    old_photo = connection.execute("SELECT profile_photo FROM users WHERE id = ?", (id,)).fetchone()["profile_photo"]
+    connection.execute("UPDATE users SET profile_photo = NULL WHERE id = ?", (id,))
+    connection.commit()
+    connection.close()
+
+    delete_uploaded_image(old_photo)
+    return jsonify({"status": "ok"})
 
 @app.route('/api/notifications', methods=['GET'])
 def get_notifications():

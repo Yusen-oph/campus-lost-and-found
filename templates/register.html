@@ -35,8 +35,8 @@
                     </div>
                 </div>
                 <label for="profile_photo" class="text-xs text-blue-600 hover:underline cursor-pointer font-medium">Upload photo</label>
-                <input type="file" id="profile_photo" name="profile_photo" accept="image/*" class="hidden">
-                <p class="text-xs text-gray-400">Optional · JPG, PNG up to 2 MB</p>
+                <input type="file" id="profile_photo" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" class="hidden">
+                <p class="text-xs text-gray-400">Optional · PNG, JPG, GIF or WEBP up to 5 MB</p>
             </div>
 
             <!-- Full Name -->
@@ -101,6 +101,7 @@
                     <div id="strength-bar" class="h-full rounded-full transition-all duration-300 w-0"></div>
                 </div>
                 <p id="strength-label" class="text-xs text-gray-400 mt-1"></p>
+                <p id="password-length-error" class="mt-1 text-xs text-red-500 hidden">Password must be at least 8 characters.</p>
             </div>
 
             <!-- Confirm Password -->
@@ -135,8 +136,13 @@
         photoInput.addEventListener("change", () => {
             const file = photoInput.files[0];
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) {
-                alert("Photo must be under 2 MB.");
+            if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(file.type)) {
+                alert("Please choose a PNG, JPG, GIF or WEBP image.");
+                photoInput.value = "";
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert("Photo is too large. Maximum size is 5 MB.");
                 photoInput.value = "";
                 return;
             }
@@ -192,26 +198,29 @@
 
             let valid = true;
 
-            // const email    = document.getElementById("email");
-            // const emailErr = document.getElementById("email-error");
-            // const emailOk  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
-            // emailErr.classList.toggle("hidden", emailOk);
-            // if (!emailOk) { valid = false; email.focus(); }
+            const email    = document.getElementById("email");
+            const emailErr = document.getElementById("email-error");
+            const emailOk  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+            emailErr.classList.toggle("hidden", emailOk);
+            if (!emailOk) { valid = false; email.focus(); }
 
-            // const role    = document.getElementById("role");
-            // const roleErr = document.getElementById("role-error");
-            // const roleOk  = role.value !== "";
-            // roleErr.classList.toggle("hidden", roleOk);
-            // if (!roleOk && valid) { valid = false; role.focus(); }
+            const role    = document.getElementById("role");
+            const roleErr = document.getElementById("role-error");
+            const roleOk  = role.value !== "";
+            roleErr.classList.toggle("hidden", roleOk);
+            if (!roleOk && valid) { valid = false; role.focus(); }
 
-            const pwd  = document.getElementById("password").value;
-            const conf = document.getElementById("confirm_password").value;
-            if (pwd !== conf) {
-                // valid = false;
-                document.getElementById("password-match-error").classList.remove("hidden");
-            }
+            const pwdInput = document.getElementById("password");
+            const lengthOk = pwdInput.value.length >= 8;
+            document.getElementById("password-length-error").classList.toggle("hidden", lengthOk);
+            if (!lengthOk && valid) { valid = false; pwdInput.focus(); }
 
-            // if (!valid) return;
+            const conf    = document.getElementById("confirm_password");
+            const matchOk = pwdInput.value === conf.value;
+            document.getElementById("password-match-error").classList.toggle("hidden", matchOk);
+            if (!matchOk && valid) { valid = false; conf.focus(); }
+
+            if (!valid) return;
 
             handleFormSubmission("/api/register", registerForm);
         });

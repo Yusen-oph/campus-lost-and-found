@@ -33,8 +33,24 @@
 
         <div class="detail-card profile-card">
             <div class="profile-header">
-                <div class="avatar avatar-large">
-                    {{ profile_user.initials }}
+                <div class="profile-photo-column">
+                    {% if profile_user.profile_photo %}
+                    <img src="{{ profile_user.profile_photo }}" alt="{{ profile_user.full_name }}" class="avatar avatar-large avatar-photo">
+                    {% else %}
+                    <div class="avatar avatar-large">
+                        {{ profile_user.initials }}
+                    </div>
+                    {% endif %}
+
+                    {% if is_own_profile %}
+                    <div class="profile-photo-actions" id="profile-photo-actions" data-user-id="{{ profile_user.id }}">
+                        <label for="profile-photo-input" class="profile-photo-link">{{ 'Change photo' if profile_user.profile_photo else 'Add photo' }}</label>
+                        <input type="file" id="profile-photo-input" accept="image/png, image/jpeg, image/gif, image/webp" class="visually-hidden">
+                        {% if profile_user.profile_photo %}
+                        <button type="button" class="profile-photo-link profile-photo-remove" id="profile-photo-remove">Remove</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div>
                     <h1 class="profile-name">{{ profile_user.full_name }}</h1>

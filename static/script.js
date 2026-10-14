@@ -78,6 +78,14 @@ async function initNavbar() {
                 .toUpperCase()
                 .slice(0, 2);
 
+            // Names and emails are typed by users, so escape them before putting
+            // them into HTML; otherwise a "name" like <img onerror=...> runs as code.
+            const safeName  = escapeHtml(data.full_name);
+            const safeEmail = escapeHtml(data.email);
+            const avatarHtml = data.profile_photo
+                ? `<img src="${escapeHtml(data.profile_photo)}" alt="" class="avatar avatar-photo">`
+                : `<div class="avatar">${escapeHtml(initials)}</div>`;
+
             actionsEl.innerHTML = `
                 ${THEME_TOGGLE_HTML}
                 <a href="/post-item" class="btn-post">+ Post<span class="btn-post-extra"> Item</span></a>
@@ -100,16 +108,16 @@ async function initNavbar() {
                 </div>
                 <div class="nav-user" id="nav-user">
                     <button class="avatar-btn" id="avatar-btn" aria-label="User menu">
-                        <div class="avatar">${initials}</div>
-                        <span class="nav-name">${data.full_name}</span>
+                        ${avatarHtml}
+                        <span class="nav-name">${safeName}</span>
                         <svg class="chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
                     <div class="dropdown" id="dropdown">
                         <div class="dropdown-header">
-                            <p class="dropdown-name">${data.full_name}</p>
-                            <p class="dropdown-email">${data.email}</p>
+                            <p class="dropdown-name">${safeName}</p>
+                            <p class="dropdown-email">${safeEmail}</p>
                         </div>
                         <hr class="dropdown-divider">
                         <a href="/users/${data.user_id}" class="dropdown-item">
@@ -475,6 +483,58 @@ function initAvailabilityEditor() {
     });
 }
 
+// ── Profile photo (own profile page) ─────────────────────────────────────────
+function initProfilePhotoEditor() {
+    const actions = document.getElementById("profile-photo-actions");
+    if (!actions) return;
+
+    const userId    = actions.dataset.userId;
+    const input     = document.getElementById("profile-photo-input");
+    const removeBtn = document.getElementById("profile-photo-remove");
+    const MAX_BYTES = 5 * 1024 * 1024;
+    const ALLOWED   = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+    input.addEventListener("change", async () => {
+        const file = input.files[0];
+        if (!file) return;
+        if (!ALLOWED.includes(file.type)) {
+            alert("Please choose a PNG, JPG, GIF or WEBP image.");
+            input.value = "";
+            return;
+        }
+        if (file.size > MAX_BYTES) {
+            alert("Photo is too large. Maximum size is 5 MB.");
+            input.value = "";
+            return;
+        }
+
+        const body = new FormData();
+        body.append("profile_photo", file);
+        try {
+            const res  = await fetch(`/api/users/${userId}/photo`, { method: "POST", body });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            window.location.reload();
+        } catch (e) {
+            alert(e.message || "Couldn't update the photo. Please try again.");
+            input.value = "";
+        }
+    });
+
+    if (removeBtn) {
+        removeBtn.addEventListener("click", async () => {
+            if (!window.confirm("Remove your profile photo?")) return;
+            try {
+                const res = await fetch(`/api/users/${userId}/photo/delete`, { method: "POST" });
+                if (!res.ok) throw new Error("Request failed");
+                window.location.reload();
+            } catch (e) {
+                alert("Couldn't remove the photo. Please try again.");
+            }
+        });
+    }
+}
+
 // ── Claiming (item detail page) ──────────────────────────────────────────────
 function initClaimActions() {
     const section = document.getElementById("claim-section");
@@ -664,6 +724,7 @@ function initOwnerActions() {
     await initNavbar();
     if (containerEl) loadItems();
     initAvailabilityEditor();
+    initProfilePhotoEditor();
     initClaimActions();
     initOwnerActions();
 })();
