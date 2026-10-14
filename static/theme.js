@@ -1,17 +1,26 @@
 // ── Light / dark theme ───────────────────────────────────────────────────────
 // Loaded in every page's <head> (not deferred) so the saved theme is applied
 // before the page is drawn — otherwise dark-mode users see a white flash.
-// The theme is stored per browser in localStorage; light is the default.
+// The theme is stored per browser in localStorage. Until the user picks one,
+// it follows the device's light/dark setting.
 
 (function () {
     const STORAGE_KEY = "theme";
 
-    function getSavedTheme() {
+    const deviceDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function getSavedChoice() {
         try {
-            return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+            return localStorage.getItem(STORAGE_KEY);  // "dark", "light" or null
         } catch (e) {
-            return "light";  // storage blocked (e.g. some private windows)
+            return null;  // storage blocked (e.g. some private windows)
         }
+    }
+
+    function getSavedTheme() {
+        const saved = getSavedChoice();
+        if (saved === "dark" || saved === "light") return saved;
+        return deviceDark.matches ? "dark" : "light";
     }
 
     function applyTheme(theme) {
@@ -43,6 +52,11 @@
 
     // Refresh button labels once the page's own buttons exist
     document.addEventListener("DOMContentLoaded", () => applyTheme(document.documentElement.dataset.theme));
+
+    // No choice made yet: follow the device if its setting changes while open
+    deviceDark.addEventListener("change", () => {
+        if (!getSavedChoice()) applyTheme(getSavedTheme());
+    });
 
     // Keep other open tabs in sync when the theme is changed in one of them
     window.addEventListener("storage", (e) => {

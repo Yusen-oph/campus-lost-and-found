@@ -34,6 +34,16 @@ def save_uploaded_image(file):
     file.save(os.path.join(UPLOAD_FOLDER, filename))
     return f"/static/uploads/{filename}"
 
+# Each user may send at most this many claim requests for one item
+# (cancelled and declined ones count too).
+MAX_CLAIM_ATTEMPTS = 3
+
+def is_locked(item):
+    """A post can't be edited or deleted once a claimant is confirmed or it's claimed."""
+    return item["status"] in ("pending", "claimed")
+
+LOCKED_MESSAGE = "This post can't be changed once a claimant is confirmed."
+
 def delete_uploaded_image(image_url):
     """Remove a previously uploaded image file. External image URLs are left alone."""
     prefix = "/static/uploads/"
@@ -229,6 +239,8 @@ def edit_item_page(id):
         return "Item not found", 404
     if item["posted_by"] != user_id:
         return "You can only edit your own posts.", 403
+    if is_locked(item):
+        return LOCKED_MESSAGE, 403
 
     return render_template('list-item-form.html', item=dict(item))
 
@@ -251,7 +263,7 @@ def update_item(id):
 
     connection = get_connection()
     cursor = connection.cursor()
-    item = cursor.execute("SELECT id, posted_by, image_url FROM items WHERE id = ?", (id,)).fetchone()
+    item = cursor.execute("SELECT id, posted_by, image_url, status FROM items WHERE id = ?", (id,)).fetchone()
 
     if item is None:
         connection.close()
@@ -259,6 +271,9 @@ def update_item(id):
     if item["posted_by"] != user_id:
         connection.close()
         return jsonify({"error": "Not authorized."}), 403
+    if is_locked(item):
+        connection.close()
+        return jsonify({"error": LOCKED_MESSAGE}), 409
 
     old_image_url = item["image_url"]
     image_url = old_image_url
@@ -290,7 +305,7 @@ def delete_item(id):
 
     connection = get_connection()
     cursor = connection.cursor()
-    item = cursor.execute("SELECT id, posted_by, image_url FROM items WHERE id = ?", (id,)).fetchone()
+    item = cursor.execute("SELECT id, posted_by, image_url, status FROM items WHERE id = ?", (id,)).fetchone()
 
     if item is None:
         connection.close()
@@ -298,7 +313,18 @@ def delete_item(id):
     if item["posted_by"] != user_id:
         connection.close()
         return jsonify({"error": "Not authorized."}), 403
+    if is_locked(item):
+        connection.close()
+        return jsonify({"error": LOCKED_MESSAGE}), 409
 
+    pending = cursor.execute(
+        "SELECT 1 FROM claim_requests WHERE item_id = ? AND status = 'pending' LIMIT 1", (id,)
+    ).fetchone()
+    if pending:
+        connection.close()
+        return jsonify({"error": "Decline or wait for the pending claim requests before deleting this post."}), 409
+
+    # Only cancelled/declined requests are left at this point
     cursor.execute("DELETE FROM claim_requests WHERE item_id = ?", (id,))
     cursor.execute("DELETE FROM items WHERE id = ?", (id,))
     connection.commit()
@@ -332,6 +358,7 @@ def get_item(id):
     claim_requests = []
     my_claim_status = None
     confirmed_claim = None
+    attempts_used = 0
 
     cursor.execute(
         "SELECT 1 FROM claim_requests WHERE item_id = ? AND status = 'pending' LIMIT 1", (id,)
@@ -371,6 +398,12 @@ def get_item(id):
         row = cursor.fetchone()
         my_claim_status = row["status"] if row else None
 
+        cursor.execute(
+            "SELECT COUNT(*) FROM claim_requests WHERE item_id = ? AND requested_by = ?",
+            (id, current_user_id)
+        )
+        attempts_used = cursor.fetchone()[0]
+
     connection.close()
 
     return render_template(
@@ -380,7 +413,10 @@ def get_item(id):
         claim_requests=claim_requests,
         my_claim_status=my_claim_status,
         confirmed_claim=confirmed_claim,
-        has_pending_request=has_pending_request
+        has_pending_request=has_pending_request,
+        is_locked=is_locked(item),
+        attempts_used=attempts_used,
+        attempts_left=max(MAX_CLAIM_ATTEMPTS - attempts_used, 0)
     )
 
 @app.route('/api/items/<int:id>/claim', methods=['POST'])
@@ -423,6 +459,14 @@ def create_claim_request(id):
         connection.close()
         return jsonify({"status": "ok", "claim_status": "pending"})
 
+    attempts_used = cursor.execute(
+        "SELECT COUNT(*) FROM claim_requests WHERE item_id = ? AND requested_by = ?",
+        (id, user_id)
+    ).fetchone()[0]
+    if attempts_used >= MAX_CLAIM_ATTEMPTS:
+        connection.close()
+        return jsonify({"error": f"You've used all {MAX_CLAIM_ATTEMPTS} requests for this item."}), 403
+
     cursor.execute(
         "INSERT INTO claim_requests (item_id, requested_by, status, proof_details) VALUES (?, ?, 'pending', ?)",
         (id, user_id, proof_details)
@@ -431,6 +475,43 @@ def create_claim_request(id):
     connection.close()
 
     return jsonify({"status": "ok", "claim_status": "pending"})
+
+@app.route('/api/items/<int:item_id>/claim-requests/<int:request_id>/decline', methods=['POST'])
+def decline_claim_request(item_id, request_id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    item = cursor.execute("SELECT id, posted_by FROM items WHERE id = ?", (item_id,)).fetchone()
+
+    if item is None:
+        connection.close()
+        return jsonify({"error": "Item not found."}), 404
+    if item["posted_by"] != user_id:
+        connection.close()
+        return jsonify({"error": "Not authorized."}), 403
+
+    claim_request = cursor.execute(
+        "SELECT id, status FROM claim_requests WHERE id = ? AND item_id = ?",
+        (request_id, item_id)
+    ).fetchone()
+
+    if claim_request is None:
+        connection.close()
+        return jsonify({"error": "Claim request not found."}), 404
+    if claim_request["status"] != "pending":
+        connection.close()
+        return jsonify({"error": "This claim request is no longer pending."}), 409
+
+    # 'rejected' = turned down by the owner; 'declined' is used when someone
+    # else's request was confirmed instead.
+    cursor.execute("UPDATE claim_requests SET status = 'rejected' WHERE id = ?", (request_id,))
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok"})
 
 @app.route('/api/items/<int:item_id>/claim-requests/<int:request_id>/confirm', methods=['POST'])
 def confirm_claim_request(item_id, request_id):

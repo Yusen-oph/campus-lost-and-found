@@ -91,11 +91,15 @@
                 </div>
 
                 {% if is_owner %}
-                <div class="owner-actions" id="owner-actions" data-item-id="{{ item.id }}">
-                    <a href="/items/{{ item.id }}/edit" class="btn-outline">Edit post</a>
-                    <button type="button" class="btn-outline btn-cancel delete-item-btn">Delete post</button>
-                </div>
-                <p class="owner-actions-error field-error hidden"></p>
+                    {% if is_locked %}
+                    <p class="claim-note owner-locked-note">This post can't be changed once a claimant is confirmed.</p>
+                    {% else %}
+                    <div class="owner-actions" id="owner-actions" data-item-id="{{ item.id }}">
+                        <a href="/items/{{ item.id }}/edit" class="btn-outline">Edit post</a>
+                        <button type="button" class="btn-outline btn-cancel delete-item-btn">Delete post</button>
+                    </div>
+                    <p class="owner-actions-error field-error hidden"></p>
+                    {% endif %}
                 {% endif %}
 
                 <div class="claim-section" id="claim-section" data-item-id="{{ item.id }}">
@@ -156,7 +160,10 @@
                                 {% if req.proof_details %}
                                 <p class="claim-proof">"{{ req.proof_details }}"</p>
                                 {% endif %}
-                                <button type="button" class="btn-primary claim-confirm-btn">Confirm requester</button>
+                                <div class="claim-request-actions">
+                                    <button type="button" class="btn-primary claim-confirm-btn">Confirm requester</button>
+                                    <button type="button" class="btn-outline btn-cancel claim-decline-btn">Decline</button>
+                                </div>
                                 {% endif %}
                             </li>
                             {% endfor %}
@@ -168,7 +175,23 @@
                         {% if session.user_id %}
                             {% if my_claim_status == 'pending' %}
                             <button type="button" class="btn-outline btn-cancel claim-cancel-btn">Cancel request</button>
+                            {% elif attempts_left == 0 %}
+                            <div class="attempts-box attempts-box--blocked" role="status">
+                                <svg class="attempts-box-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                <p>You've used <strong>all 3 requests</strong> for this item, so you can't request it again.</p>
+                            </div>
                             {% else %}
+                                {% if my_claim_status == 'rejected' %}
+                                <div class="attempts-box" role="status">
+                                    <svg class="attempts-box-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                    <p>Your request was declined.<br>You have <strong>{{ attempts_left }} {{ 'attempt' if attempts_left == 1 else 'attempts' }}</strong> left.</p>
+                                </div>
+                                {% elif attempts_used > 0 %}
+                                <div class="attempts-box" role="status">
+                                    <svg class="attempts-box-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                    <p>You have <strong>{{ attempts_left }} {{ 'attempt' if attempts_left == 1 else 'attempts' }}</strong> left for this item.</p>
+                                </div>
+                                {% endif %}
                                 <label for="claim-proof-input" class="claim-proof-label">Describe details that prove you're the true owner (e.g. color, brand, contents, where/when lost)</label>
                                 <textarea id="claim-proof-input" class="claim-proof-input" rows="3" required
                                           placeholder="e.g. Black leather wallet with a blue student ID card inside, lost near the library on Tuesday."></textarea>

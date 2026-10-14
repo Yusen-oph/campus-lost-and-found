@@ -211,6 +211,9 @@ function outgoingNotifText(req) {
     if (req.status === "declined") {
         return `<strong>${escapeHtml(req.item_title)}</strong> was claimed by someone else`;
     }
+    if (req.status === "rejected") {
+        return `Your request for <strong>${escapeHtml(req.item_title)}</strong> was declined`;
+    }
     if (req.status === "cancelled") {
         return `You cancelled your request for <strong>${escapeHtml(req.item_title)}</strong>`;
     }
@@ -567,6 +570,26 @@ function initClaimActions() {
                 window.location.reload();
             } catch (e) {
                 alert("Couldn't confirm the requester. Please try again.");
+                btn.disabled = false;
+                li.classList.remove("confirming");
+            }
+        });
+    });
+
+    section.querySelectorAll(".claim-decline-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const li        = btn.closest(".claim-request-item");
+            const requestId = li.dataset.requestId;
+            if (!window.confirm("Decline this request? Each person can send at most 3 requests for an item.")) return;
+
+            btn.disabled = true;
+            li.classList.add("confirming");
+            try {
+                const res = await fetch(`/api/items/${itemId}/claim-requests/${requestId}/decline`, { method: "POST" });
+                if (!res.ok) throw new Error("Request failed");
+                window.location.reload();
+            } catch (e) {
+                alert("Couldn't decline the request. Please try again.");
                 btn.disabled = false;
                 li.classList.remove("confirming");
             }
