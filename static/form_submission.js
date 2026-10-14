@@ -18,6 +18,9 @@ async function handleFormSubmission(endpoint, form) {
         } else if (endpoint === "/items") {
             alert("Form submitted successfully! ");
             window.location.href = "/";
+        } else if (/^\/api\/items\/\d+\/edit$/.test(endpoint)) {
+            alert("Changes saved.");
+            window.location.href = `/items/${data.id}`;
         }
     } else {
         const error = data.error || "Something went wrong.";

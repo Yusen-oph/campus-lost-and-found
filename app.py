@@ -26,6 +26,15 @@ def save_uploaded_image(file):
     file.save(os.path.join(UPLOAD_FOLDER, filename))
     return f"/static/uploads/{filename}"
 
+def delete_uploaded_image(image_url):
+    """Remove a previously uploaded image file. External image URLs are left alone."""
+    prefix = "/static/uploads/"
+    if not image_url or not image_url.startswith(prefix):
+        return
+    path = os.path.join(UPLOAD_FOLDER, os.path.basename(image_url))
+    if os.path.isfile(path):
+        os.remove(path)
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -197,6 +206,99 @@ def handle_item_submission():
     connection.close()
 
     return jsonify({"status": "success", "id": new_id, "message": "Item posted!"})
+
+@app.route('/items/<int:id>/edit', methods=['GET'])
+def edit_item_page(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return redirect('/login')
+
+    connection = get_connection()
+    item = connection.execute("SELECT * FROM items WHERE id = ?", (id,)).fetchone()
+    connection.close()
+
+    if item is None:
+        return "Item not found", 404
+    if item["posted_by"] != user_id:
+        return "You can only edit your own posts.", 403
+
+    return render_template('list-item-form.html', item=dict(item))
+
+@app.route('/api/items/<int:id>/edit', methods=['POST'])
+def update_item(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    title        = request.form.get('item-title', '').strip()
+    description  = request.form.get('description', '').strip()
+    category     = request.form.get('category', '').strip()
+    remove_image = request.form.get('remove_image') == '1'
+    image_file   = request.files.get('image')
+
+    if not title or not description:
+        return jsonify({"error": "Title and description are required."}), 400
+    if category not in ('lost', 'found', 'trade'):
+        return jsonify({"error": "Please select a valid category."}), 400
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    item = cursor.execute("SELECT id, posted_by, image_url FROM items WHERE id = ?", (id,)).fetchone()
+
+    if item is None:
+        connection.close()
+        return jsonify({"error": "Item not found."}), 404
+    if item["posted_by"] != user_id:
+        connection.close()
+        return jsonify({"error": "Not authorized."}), 403
+
+    old_image_url = item["image_url"]
+    image_url = old_image_url
+    if image_file and image_file.filename:
+        image_url = save_uploaded_image(image_file)
+        if image_url is None:
+            connection.close()
+            return jsonify({"error": "Please upload a PNG, JPG, GIF or WEBP image."}), 400
+    elif remove_image:
+        image_url = None
+
+    cursor.execute(
+        "UPDATE items SET title = ?, description = ?, category = ?, image_url = ? WHERE id = ?",
+        (title, description, category, image_url, id)
+    )
+    connection.commit()
+    connection.close()
+
+    if image_url != old_image_url:
+        delete_uploaded_image(old_image_url)
+
+    return jsonify({"status": "success", "id": id, "message": "Item updated!"})
+
+@app.route('/api/items/<int:id>/delete', methods=['POST'])
+def delete_item(id):
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    connection = get_connection()
+    cursor = connection.cursor()
+    item = cursor.execute("SELECT id, posted_by, image_url FROM items WHERE id = ?", (id,)).fetchone()
+
+    if item is None:
+        connection.close()
+        return jsonify({"error": "Item not found."}), 404
+    if item["posted_by"] != user_id:
+        connection.close()
+        return jsonify({"error": "Not authorized."}), 403
+
+    cursor.execute("DELETE FROM claim_requests WHERE item_id = ?", (id,))
+    cursor.execute("DELETE FROM items WHERE id = ?", (id,))
+    connection.commit()
+    connection.close()
+
+    delete_uploaded_image(item["image_url"])
+
+    return jsonify({"status": "ok"})
 
 @app.route('/items/<int:id>', methods=['GET'])
 def get_item(id):

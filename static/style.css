@@ -823,6 +823,17 @@ body {
     display: none;
 }
 
+/* ── Owner actions (edit / delete own post) ─────────────────────────────── */
+.owner-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.owner-actions .btn-outline {
+    display: inline-block;
+}
+
 /* ── Claiming ────────────────────────────────────────────────────────────── */
 
 .claim-section {

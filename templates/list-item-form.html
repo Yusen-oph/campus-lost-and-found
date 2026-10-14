@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Post an Item</title>
+    <title>{{ 'Edit Item' if item else 'Post an Item' }}</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="{{ url_for('static', filename='form_submission.js') }}"></script>
 </head>
@@ -16,15 +16,15 @@
         </svg>
         Go back
     </a>
-        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">List a New Item</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">{{ 'Edit Item' if item else 'List a New Item' }}</h2>
 
         <p id="message" class="mb-4 text-sm text-red-500"></p>
 
-        <form action="/items" method="POST" id="list-item-form" class="space-y-4" novalidate>
+        <form action="{{ '/api/items/%d/edit' % item.id if item else '/items' }}" method="POST" id="list-item-form" class="space-y-4" novalidate>
 
             <div>
                 <label for="title" class="block text-sm font-semibold text-gray-700 mb-1">Title</label>
-                <input type="text" id="title" name="item-title" required
+                <input type="text" id="title" name="item-title" required value="{{ item.title if item else '' }}"
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
                 <p id="title-error" class="mt-1 text-xs text-red-500 hidden">Please enter a title.</p>
             </div>
@@ -32,7 +32,7 @@
             <div>
                 <label for="description" class="block text-sm font-semibold text-gray-700 mb-1">Description</label>
                 <textarea id="description" name="description" rows="4" required
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"></textarea>
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">{{ item.description if item else '' }}</textarea>
                 <p id="description-error" class="mt-1 text-xs text-red-500 hidden">Please enter a description.</p>
             </div>
 
@@ -41,9 +41,9 @@
                 <select id="category" name="category" required
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
                     <option value="">-- Select a category --</option>
-                    <option value="lost">Lost</option>
-                    <option value="found">Found</option>
-                    <option value="trade">Trade</option>
+                    {% for value, label in [("lost", "Lost"), ("found", "Found"), ("trade", "Trade")] %}
+                    <option value="{{ value }}"{{ ' selected' if item and item.category == value else '' }}>{{ label }}</option>
+                    {% endfor %}
                 </select>
                 <p id="category-error" class="mt-1 text-xs text-red-500 hidden">Please select a category.</p>
             </div>
@@ -54,8 +54,9 @@
                        class="w-full text-sm text-gray-600 border border-gray-300 rounded-lg cursor-pointer file:mr-3 file:py-2 file:px-4 file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100">
                 <p class="mt-1 text-xs text-gray-400">PNG, JPG, GIF or WEBP, up to 5 MB.</p>
                 <p id="image-error" class="mt-1 text-xs text-red-500 hidden"></p>
-                <div id="image-preview-wrap" class="mt-3 hidden relative">
-                    <img id="image-preview" alt="Selected photo preview" class="w-full max-h-64 object-contain rounded-lg border border-gray-200 bg-gray-50">
+                <input type="hidden" id="remove-image" name="remove_image" value="">
+                <div id="image-preview-wrap" class="mt-3 {{ '' if item and item.image_url else 'hidden' }} relative">
+                    <img id="image-preview" alt="Selected photo preview"{% if item and item.image_url %} src="{{ item.image_url }}"{% endif %} class="w-full max-h-64 object-contain rounded-lg border border-gray-200 bg-gray-50">
                     <button type="button" id="image-remove"
                             class="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-600 text-xs font-medium px-2 py-1 rounded shadow cursor-pointer">
                         Remove
@@ -65,7 +66,7 @@
 
             <button type="submit"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition duration-200 mt-2 cursor-pointer">
-                Post Item
+                {{ 'Save Changes' if item else 'Post Item' }}
             </button>
 
         </form>
@@ -103,7 +104,7 @@
 
             if (!valid) return;
 
-            handleFormSubmission("/items", listItemForm);
+            handleFormSubmission(listItemForm.getAttribute("action"), listItemForm);
         });
 
         // ── Clear field errors on input ────────────────────────────────────────
@@ -124,6 +125,7 @@
         const imageErr         = document.getElementById("image-error");
         const imagePreviewWrap = document.getElementById("image-preview-wrap");
         const imagePreview     = document.getElementById("image-preview");
+        const removeImageInput = document.getElementById("remove-image");
 
         function validateImage() {
             const file = imageInput.files[0];
@@ -138,24 +140,37 @@
             return !error;
         }
 
+        // When editing, the item's current photo (if any) is shown until replaced or removed
+        const existingImageUrl = imagePreview.getAttribute("src");
+
+        function showPreview(src) {
+            if (imagePreview.src.startsWith("blob:")) URL.revokeObjectURL(imagePreview.src);
+            if (src) {
+                imagePreview.src = src;
+            } else {
+                imagePreview.removeAttribute("src");
+            }
+            imagePreviewWrap.classList.toggle("hidden", !src);
+        }
+
+        function currentImage() {
+            return removeImageInput.value === "1" ? null : existingImageUrl;
+        }
+
         function clearImage() {
             imageInput.value = "";
-            if (imagePreview.src) URL.revokeObjectURL(imagePreview.src);
-            imagePreview.removeAttribute("src");
-            imagePreviewWrap.classList.add("hidden");
             imageErr.classList.add("hidden");
+            removeImageInput.value = "1";  // when editing, drop the existing photo
+            showPreview(null);
         }
 
         imageInput.addEventListener("change", () => {
             const file = imageInput.files[0];
-            if (imagePreview.src) URL.revokeObjectURL(imagePreview.src);
             if (!file || !validateImage()) {
-                imagePreview.removeAttribute("src");
-                imagePreviewWrap.classList.add("hidden");
+                showPreview(file ? null : currentImage());
                 return;
             }
-            imagePreview.src = URL.createObjectURL(file);
-            imagePreviewWrap.classList.remove("hidden");
+            showPreview(URL.createObjectURL(file));
         });
 
         document.getElementById("image-remove").addEventListener("click", clearImage);

@@ -554,10 +554,44 @@ function initClaimActions() {
     }
 }
 
+// ── Editing / deleting own post (item detail page) ───────────────────────────
+function initOwnerActions() {
+    const actions = document.getElementById("owner-actions");
+    if (!actions) return;
+
+    const itemId    = actions.dataset.itemId;
+    const deleteBtn = actions.querySelector(".delete-item-btn");
+    const errorEl   = document.querySelector(".owner-actions-error");
+
+    deleteBtn.addEventListener("click", async () => {
+        if (!window.confirm("Delete this post? This can't be undone, and any claim requests on it will be removed.")) return;
+
+        deleteBtn.disabled = true;
+        try {
+            const res  = await fetch(`/api/items/${itemId}/delete`, { method: "POST" });
+            const data = await res.json();
+
+            if (!res.ok) {
+                errorEl.textContent = data.error || "Couldn't delete the post.";
+                errorEl.classList.remove("hidden");
+                deleteBtn.disabled = false;
+                return;
+            }
+
+            window.location.href = "/";
+        } catch (e) {
+            errorEl.textContent = "Couldn't delete the post. Please try again.";
+            errorEl.classList.remove("hidden");
+            deleteBtn.disabled = false;
+        }
+    });
+}
+
 // ── Init ────────────────────────────────────────────────────────────────────
 (async () => {
     await initNavbar();
     if (containerEl) loadItems();
     initAvailabilityEditor();
     initClaimActions();
+    initOwnerActions();
 })();

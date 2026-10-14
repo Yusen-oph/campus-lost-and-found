@@ -89,6 +89,14 @@
                     <p class="item-id">Item #{{ item.id }}</p>
                 </div>
 
+                {% if is_owner %}
+                <div class="owner-actions" id="owner-actions" data-item-id="{{ item.id }}">
+                    <a href="/items/{{ item.id }}/edit" class="btn-outline">Edit post</a>
+                    <button type="button" class="btn-outline btn-cancel delete-item-btn">Delete post</button>
+                </div>
+                <p class="owner-actions-error field-error hidden"></p>
+                {% endif %}
+
                 <div class="claim-section" id="claim-section" data-item-id="{{ item.id }}">
                     {% if item.status == 'claimed' %}
                         {% if is_owner %}
