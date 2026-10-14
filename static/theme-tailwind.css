@@ -1,0 +1,77 @@
+/* Dark mode for the Tailwind pages (login, register, post/edit item).
+   Tailwind v4 reads every colour from a CSS variable (bg-gray-50 uses
+   var(--color-gray-50), and so on), so flipping the grey scale here re-themes
+   those pages without adding dark: classes to each element. These rules sit
+   outside Tailwind's cascade layers, so they win over its own definitions. */
+
+:root[data-theme="dark"] {
+    color-scheme: dark;   /* dark scrollbars, file pickers and dropdowns */
+
+    --color-gray-50:  #0f1724;   /* page background */
+    --color-gray-100: #182233;
+    --color-gray-200: #2c3a50;   /* default border colour */
+    --color-gray-300: #3a4a63;   /* input borders */
+    --color-gray-400: #7d8fa9;
+    --color-gray-500: #9aabc4;
+    --color-gray-600: #b4c2d6;
+    --color-gray-700: #cfd9e7;   /* labels */
+    --color-gray-800: #e3eaf5;   /* headings */
+
+    --color-blue-50:  #1d2c44;
+    --color-blue-100: #24395d;
+    --color-blue-600: #4b8ff0;   /* matches the dark primary in style.css */
+    --color-blue-700: #2f6fcf;
+
+    --color-red-50:  #3a1a1a;
+    --color-red-200: #7f2a2a;
+    --color-red-700: #fca5a5;
+}
+
+/* bg-white also shares its variable with text-white (button labels), so the
+   card background is overridden by class instead of by variable. */
+:root[data-theme="dark"] .bg-white,
+:root[data-theme="dark"] .hover\:bg-white:hover {
+    background-color: #182233;
+}
+
+:root[data-theme="dark"] .bg-white\/90 {
+    background-color: rgb(24 34 51 / 0.9);
+}
+
+/* "Choose file" button text: blue-700 is a button hover colour in dark mode,
+   too dim for text, so use a light blue here. */
+:root[data-theme="dark"] .file\:text-blue-700::file-selector-button {
+    color: #a5c4fb;
+}
+
+/* ── Floating light/dark toggle (these pages have no navbar) ─────────────── */
+.theme-toggle-floating {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-gray-200);
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
+    cursor: pointer;
+}
+
+.theme-toggle-floating:hover {
+    border-color: var(--color-gray-300);
+}
+
+.theme-toggle-floating svg {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+/* Show the moon in light mode (click for dark), the sun in dark mode */
+.theme-icon-sun { display: none; }
+:root[data-theme="dark"] .theme-icon-sun { display: block; }
+:root[data-theme="dark"] .theme-icon-moon { display: none; }

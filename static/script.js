@@ -52,6 +52,14 @@ function escapeHtml(str) {
 }
 
 // ── Navbar ─────────────────────────────────────────────────────────────────
+// Light/dark switch; theme.js handles the click and shows the right icon
+const THEME_TOGGLE_HTML = `
+    <button type="button" class="theme-toggle nav-icon-btn" aria-label="Switch to dark mode">
+        <svg class="theme-icon-moon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        <svg class="theme-icon-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+    </button>
+`;
+
 async function initNavbar() {
     const actionsEl = document.getElementById("navbar-actions");
     if (!actionsEl) return;
@@ -71,6 +79,7 @@ async function initNavbar() {
                 .slice(0, 2);
 
             actionsEl.innerHTML = `
+                ${THEME_TOGGLE_HTML}
                 <a href="/post-item" class="btn-post">+ Post<span class="btn-post-extra"> Item</span></a>
                 <div class="nav-notif" id="nav-notif">
                     <button class="bell-btn" id="bell-btn" aria-label="Notifications">
@@ -175,10 +184,12 @@ async function initNavbar() {
 
         } else {
             actionsEl.innerHTML = `
+                ${THEME_TOGGLE_HTML}
                 <a href="/register" class="btn-outline">Sign Up</a>
                 <a href="/login"    class="btn-primary">Log In</a>
             `;
         }
+        window.refreshThemeToggles();  // label the new toggle for the current theme
     } catch (e) {
         console.error("Navbar init failed:", e);
     }
