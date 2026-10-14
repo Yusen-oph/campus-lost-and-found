@@ -1,9 +1,11 @@
 import os
+import re
 import uuid
 from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_connection
+from init_db import create_dismissed_notifications_table
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -11,6 +13,12 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB per request
+
+# Add tables introduced after the database was first created
+_connection = get_connection()
+create_dismissed_notifications_table(_connection.cursor())
+_connection.commit()
+_connection.close()
 
 @app.errorhandler(413)
 def file_too_large(e):
@@ -599,9 +607,14 @@ def get_notifications():
         JOIN items ON claim_requests.item_id = items.id
         JOIN users ON claim_requests.requested_by = users.id
         WHERE items.posted_by = ? AND claim_requests.status IN ('pending', 'cancelled')
+          AND NOT EXISTS (
+              SELECT 1 FROM dismissed_notifications d
+              WHERE d.user_id = ?
+                AND d.notif_id = 'incoming-' || claim_requests.id || '-' || claim_requests.status
+          )
         ORDER BY claim_requests.id DESC
         LIMIT 20
-    """, (user_id,))
+    """, (user_id, user_id))
     incoming = [dict(row) for row in cursor.fetchall()]
 
     cursor.execute("""
@@ -610,14 +623,39 @@ def get_notifications():
         FROM claim_requests
         JOIN items ON claim_requests.item_id = items.id
         WHERE claim_requests.requested_by = ?
+          AND NOT EXISTS (
+              SELECT 1 FROM dismissed_notifications d
+              WHERE d.user_id = ?
+                AND d.notif_id = 'outgoing-' || claim_requests.id || '-' || claim_requests.status
+          )
         ORDER BY claim_requests.id DESC
         LIMIT 20
-    """, (user_id,))
+    """, (user_id, user_id))
     outgoing = [dict(row) for row in cursor.fetchall()]
 
     connection.close()
 
     return jsonify({"incoming": incoming, "outgoing": outgoing})
+
+@app.route('/api/notifications/dismiss', methods=['POST'])
+def dismiss_notification():
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Please log in."}), 401
+
+    notif_id = request.form.get('notif_id', '').strip()
+    if not re.fullmatch(r"(incoming|outgoing)-\d+-[a-z]+", notif_id):
+        return jsonify({"error": "Invalid notification."}), 400
+
+    connection = get_connection()
+    connection.execute(
+        "INSERT OR IGNORE INTO dismissed_notifications (user_id, notif_id) VALUES (?, ?)",
+        (user_id, notif_id)
+    )
+    connection.commit()
+    connection.close()
+
+    return jsonify({"status": "ok"})
 
 if __name__ == '__main__':
  app.run(debug=True)

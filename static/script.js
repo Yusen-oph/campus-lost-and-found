@@ -71,7 +71,7 @@ async function initNavbar() {
                 .slice(0, 2);
 
             actionsEl.innerHTML = `
-                <a href="/post-item" class="btn-post">+ Post Item</a>
+                <a href="/post-item" class="btn-post">+ Post<span class="btn-post-extra"> Item</span></a>
                 <div class="nav-notif" id="nav-notif">
                     <button class="bell-btn" id="bell-btn" aria-label="Notifications">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -247,10 +247,48 @@ function renderNotifications(data) {
     }
 
     listEl.innerHTML = entries.map(e => `
-        <a href="/items/${e.itemId}" class="notif-item${seen.includes(e.notifId) ? "" : " notif-item--unseen"}">
-            ${e.body}
-        </a>
+        <div class="notif-item${seen.includes(e.notifId) ? "" : " notif-item--unseen"}" data-notif-id="${e.notifId}">
+            <a href="/items/${e.itemId}" class="notif-link">${e.body}</a>
+            <button type="button" class="notif-dismiss" aria-label="Delete notification" title="Delete notification">&times;</button>
+        </div>
     `).join("");
+
+    listEl.querySelectorAll(".notif-dismiss").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            dismissNotification(btn.closest(".notif-item"));
+        });
+    });
+}
+
+async function dismissNotification(itemEl) {
+    const notifId = itemEl.dataset.notifId;
+    itemEl.classList.add("notif-item--removing");
+    try {
+        const res = await fetch("/api/notifications/dismiss", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ notif_id: notifId })
+        });
+        if (!res.ok) throw new Error("Request failed");
+    } catch (e) {
+        itemEl.classList.remove("notif-item--removing");
+        alert("Couldn't delete the notification. Please try again.");
+        return;
+    }
+
+    itemEl.remove();
+    currentNotifIds = currentNotifIds.filter(id => id !== notifId);
+
+    const badgeEl = document.getElementById("notif-badge");
+    const unseenCount = document.querySelectorAll(".notif-item--unseen").length;
+    badgeEl.textContent = unseenCount > 9 ? "9+" : String(unseenCount);
+    badgeEl.classList.toggle("hidden", unseenCount === 0);
+
+    const listEl = document.getElementById("notif-list");
+    if (!listEl.querySelector(".notif-item")) {
+        listEl.innerHTML = `<p class="notif-empty">No notifications yet.</p>`;
+    }
 }
 
 async function loadNotifications() {

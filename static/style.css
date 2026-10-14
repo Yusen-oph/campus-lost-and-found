@@ -545,20 +545,104 @@ body {
     overflow-y: auto;
 }
 
+/* On phones the bell isn't at the right edge, so anchoring the panel to it
+   pushes it off-screen. Pin it to the viewport just below the navbar instead. */
+@media (max-width: 600px) {
+    .notif-dropdown {
+        position: fixed;
+        top: 64px;
+        left: 0.75rem;
+        right: 0.75rem;
+        width: auto;
+        max-height: calc(100vh - 80px);
+    }
+
+    /* Make room in the navbar: the name is still shown inside the avatar menu */
+    .navbar-inner {
+        gap: 0.75rem;
+    }
+
+    .navbar-brand,
+    .btn-post {
+        white-space: nowrap;
+    }
+
+    .nav-name,
+    .avatar-btn .chevron {
+        display: none;
+    }
+
+    .container {
+        padding: 0 1rem;
+    }
+
+    .navbar-actions {
+        gap: 0.4rem;
+    }
+
+    .btn-post,
+    .navbar-actions .btn-outline,
+    .navbar-actions .btn-primary {
+        white-space: nowrap;
+        padding: 0.45rem 0.75rem;
+    }
+
+    .avatar-btn {
+        padding: 0.3rem;
+    }
+}
+
+/* Very small phones (e.g. iPhone SE): shorten "+ Post Item" to "+ Post" */
+@media (max-width: 359px) {
+    .btn-post-extra {
+        display: none;
+    }
+}
+
 .notif-list {
     display: flex;
     flex-direction: column;
 }
 
 .notif-item {
-    display: block;
-    padding: 0.7rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.7rem 0.6rem 0.7rem 1rem;
     font-size: 0.85rem;
     line-height: 1.4;
+    border-bottom: 1px solid var(--color-border);
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.notif-link {
+    flex: 1;
     color: var(--color-text);
     text-decoration: none;
-    border-bottom: 1px solid var(--color-border);
-    transition: background 0.15s;
+}
+
+.notif-dismiss {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.notif-dismiss:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--color-text);
+}
+
+.notif-item--removing {
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .notif-item:last-child {
